@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FFWSBR 2026 - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Rajdhani:wght@500;600;700;800&display=swap');
+      
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #0a0a0a;
+        /* Cores baseadas na imagem: Amarelo -> Roxo -> Preto */
+        background-image: 
+          radial-gradient(circle at 50% 0%, #3b0764 0%, transparent 50%),
+          radial-gradient(circle at 100% 20%, #7e22ce 0%, transparent 30%),
+          radial-gradient(circle at 0% 20%, #854d0e 0%, transparent 30%);
+        background-attachment: fixed;
+        color: #F3F4F6;
+        overflow-x: hidden;
+      }
+
+      h1, h2, h3, h4, h5, h6, .font-display {
+        font-family: 'Rajdhani', sans-serif;
+      }
+
+      /* Scrollbar Customizada - Tema Ouro/Laranja */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #09090b; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: linear-gradient(to bottom, #f97316, #eab308);
+        border-radius: 4px;
+      }
+
+      .glass {
+        background: rgba(10, 5, 10, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(249, 115, 22, 0.2);
+      }
+
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+      }
+      .animate-float {
+        animation: float 4s ease-in-out infinite;
+      }
+
+      /* Efeito de brilho pulsar baseado no roxo/laranja */
+      @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 0 15px rgba(249, 115, 22, 0.2); }
+        50% { box-shadow: 0 0 30px rgba(112, 26, 117, 0.5); }
+      }
+      .animate-pulse-glow {
+        animation: pulse-glow 3s infinite;
+      }
+
+      @media print {
+        @page { size: landscape; margin: 0.5cm; }
+        body { background: white !important; color: black !important; }
+        nav, .no-print, button:not(.print-show) { display: none !important; }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.10.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.1/",
+    "recharts": "https://esm.sh/recharts@^3.5.1",
+    "lucide-react": "https://esm.sh/lucide-react@^0.559.0",
+    "react/": "https://esm.sh/react@^19.2.1/",
+    "react": "https://esm.sh/react@^19.2.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
