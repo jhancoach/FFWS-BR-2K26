@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardData, TeamStats, PlayerData, KillFeed, MatchDetails } from '../types';
 import { calculateTeamStats } from '../services/dataService';
-import { Shield, TrendingUp, Users, ArrowLeft, Target, Award, Crosshair, Map as MapIcon, BarChart3, Star, Disc, Activity, Layers, Zap, ListOrdered, Trophy, ChevronDown, Medal, CheckCircle2, Flame } from 'lucide-react';
+import { Shield, TrendingUp, Users, ArrowLeft, Target, Award, Crosshair, Map as MapIcon, BarChart3, Star, Disc, Activity, Layers, Zap, ListOrdered, Trophy, ChevronDown, Medal, CheckCircle2, Flame, TrendingDown, LayoutGrid } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, LabelList, PieChart, Pie, Cell, Legend, CartesianGrid, YAxis } from 'recharts';
 import FilterBar from '../components/FilterBar';
 
@@ -31,6 +31,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
   const [selectedDrop, setSelectedDrop] = useState<string | null>(null);
   const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'gallery' | 'mapRanking' | 'bottomRanking'>('gallery');
 
   useEffect(() => {
       if (location.state?.team) {
@@ -234,6 +235,28 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     return Object.entries(safeCounts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   }, [data.killFeed, data.players, selectedTeamName]);
 
+  // Classificação por Mapa (Comparativo)
+  const mapRankings = useMemo(() => {
+    const maps = Array.from(new Set(data.details.map(d => d.MAPA))).filter(Boolean) as string[];
+    return maps.map(mapName => {
+      const mapDetails = data.details.filter(d => normalize(d.MAPA) === normalize(mapName));
+      const stats = calculateTeamStats({ ...data, details: mapDetails });
+      return { mapName, stats };
+    });
+  }, [data]);
+
+  // Piores Times (Bottom Rankings)
+  const bottomRankings = useMemo(() => {
+    const stats = [...filteredTeamStats];
+    return {
+      pts: [...stats].sort((a, b) => a.pts - b.pts).slice(0, 12),
+      ptsc: [...stats].sort((a, b) => a.ptsc - b.ptsc).slice(0, 12),
+      booyahs: [...stats].sort((a, b) => a.b - b.b).slice(0, 12),
+      avgPts: [...stats].sort((a, b) => a.avgPts - b.avgPts).slice(0, 12),
+      avgAbts: [...stats].sort((a, b) => a.avgAbts - b.avgAbts).slice(0, 12),
+    };
+  }, [filteredTeamStats]);
+
   const handlePlayerClick = (playerName: string) => {
     navigate('/players', { state: { player: playerName } });
   };
@@ -244,19 +267,45 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     <div className="space-y-8">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center no-print">
             <FilterBar filters={filters} setFilters={setFilters} options={filterOptions} />
-            {selectedTeamName && (
-                <button 
-                    onClick={() => {
-                        if (selectedMap) setSelectedMap(null);
-                        else if (selectedDrop) setSelectedDrop(null);
-                        else if (selectedPosition !== null) setSelectedPosition(null);
-                        else setFilters(prev => ({...prev, team: []}));
-                    }}
-                    className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-yellow-500 rounded-xl transition-all text-xs font-black uppercase tracking-widest border border-white/5"
-                >
-                    <ArrowLeft size={16} /> {(selectedMap || selectedDrop || selectedPosition !== null) ? `Voltar ao Perfil` : `Voltar à Galeria`}
-                </button>
-            )}
+            
+            <div className="flex items-center gap-4">
+                {!selectedTeamName && (
+                    <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
+                        <button 
+                            onClick={() => setActiveTab('gallery')}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'gallery' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            <LayoutGrid size={14} /> Galeria
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('mapRanking')}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'mapRanking' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            <MapIcon size={14} /> Por Mapa
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('bottomRanking')}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'bottomRanking' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            <TrendingDown size={14} /> Piores
+                        </button>
+                    </div>
+                )}
+
+                {selectedTeamName && (
+                    <button 
+                        onClick={() => {
+                            if (selectedMap) setSelectedMap(null);
+                            else if (selectedDrop) setSelectedDrop(null);
+                            else if (selectedPosition !== null) setSelectedPosition(null);
+                            else setFilters(prev => ({...prev, team: []}));
+                        }}
+                        className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-yellow-500 rounded-xl transition-all text-xs font-black uppercase tracking-widest border border-white/5"
+                    >
+                        <ArrowLeft size={16} /> {(selectedMap || selectedDrop || selectedPosition !== null) ? `Voltar ao Perfil` : `Voltar à Galeria`}
+                    </button>
+                )}
+            </div>
         </div>
 
         {selectedTeamName && selectedTeamStats ? (
@@ -568,6 +617,67 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                     </div>
                 </div>
             </div>
+        ) : activeTab === 'mapRanking' ? (
+            <div className="space-y-12 animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {mapRankings.map((m, idx) => (
+                        <div key={idx} className="bg-[#1a1a1a] rounded-3xl border border-gray-800 overflow-hidden shadow-2xl">
+                            <div className="bg-gradient-to-r from-blue-900/40 to-black p-6 border-b border-gray-800 flex justify-between items-center">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-blue-600 rounded-2xl text-white">
+                                        <MapIcon size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">{m.mapName}</h3>
+                                        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Classificação Geral por Território</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-black/40 text-[9px] text-gray-500 uppercase font-black tracking-widest">
+                                        <tr>
+                                            <th className="px-6 py-4 w-12 text-center">#</th>
+                                            <th className="px-6 py-4">Equipe</th>
+                                            <th className="px-6 py-4 text-center">PTS</th>
+                                            <th className="px-6 py-4 text-center">B</th>
+                                            <th className="px-6 py-4 text-center">KILLS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-800/50">
+                                        {m.stats.slice(0, 12).map((team, tIdx) => (
+                                            <tr key={tIdx} className="hover:bg-white/5 transition-colors cursor-pointer" onClick={() => setFilters(prev => ({...prev, team: [team.name]}))}>
+                                                <td className="px-6 py-4 text-center font-mono text-[10px] text-gray-600">{tIdx + 1}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 bg-black rounded-lg border border-gray-800 p-1 flex items-center justify-center">
+                                                            {team.image ? <img src={team.image} alt={team.name} className="w-full h-full object-contain" /> : <Shield size={14} className="text-gray-700" />}
+                                                        </div>
+                                                        <span className="text-xs font-black text-white uppercase italic">{team.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center font-black text-yellow-500 italic text-sm">{team.pts}</td>
+                                                <td className="px-6 py-4 text-center font-black text-orange-500 italic text-sm">{team.b}</td>
+                                                <td className="px-6 py-4 text-center font-black text-red-500 italic text-sm">{team.abts}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        ) : activeTab === 'bottomRanking' ? (
+            <div className="space-y-12 animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <BottomList title="Piores em Pontos" data={bottomRankings.pts} metric="pts" label="PTS" color="text-yellow-500" onSelect={(name) => setFilters(prev => ({...prev, team: [name]}))} />
+                    <BottomList title="Piores em PTS/C" data={bottomRankings.ptsc} metric="ptsc" label="PTS/C" color="text-orange-500" onSelect={(name) => setFilters(prev => ({...prev, team: [name]}))} />
+                    <BottomList title="Piores em Booyahs" data={bottomRankings.booyahs} metric="b" label="BOOYAHS" color="text-blue-500" onSelect={(name) => setFilters(prev => ({...prev, team: [name]}))} />
+                    <BottomList title="Piores Médias (PTS)" data={bottomRankings.avgPts} metric="avgPts" label="AVG PTS" color="text-yellow-400" onSelect={(name) => setFilters(prev => ({...prev, team: [name]}))} />
+                    <BottomList title="Piores Médias (KILLS)" data={bottomRankings.avgAbts} metric="avgAbts" label="AVG KILLS" color="text-red-500" onSelect={(name) => setFilters(prev => ({...prev, team: [name]}))} />
+                </div>
+            </div>
         ) : (
             /* Galeria de Times */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in duration-500">
@@ -601,6 +711,32 @@ const StatBadge = ({ label, value, color }: any) => (
     <div className="bg-black/60 px-5 py-3 rounded-2xl border border-white/5 text-center min-w-[100px] shadow-inner">
         <span className="block text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">{label}</span>
         <span className={`block text-2xl font-black ${color} italic`}>{value}</span>
+    </div>
+);
+
+const BottomList = ({ title, data, metric, label, color, onSelect }: any) => (
+    <div className="bg-[#1a1a1a] rounded-3xl border border-red-900/20 overflow-hidden shadow-2xl">
+        <div className="bg-gradient-to-r from-red-900/20 to-black p-5 border-b border-gray-800 flex items-center gap-3">
+            <TrendingDown size={18} className="text-red-500" />
+            <h3 className="text-sm font-black text-white uppercase tracking-widest">{title}</h3>
+        </div>
+        <div className="divide-y divide-gray-800/50">
+            {data.map((team: any, idx: number) => (
+                <div key={idx} onClick={() => onSelect(team.name)} className="px-5 py-3 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer group">
+                    <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-mono text-gray-600 w-4">#{idx + 1}</span>
+                        <div className="w-8 h-8 bg-black rounded-lg border border-gray-800 p-1 flex items-center justify-center">
+                            {team.image ? <img src={team.image} alt={team.name} className="w-full h-full object-contain" /> : <Shield size={14} className="text-gray-700" />}
+                        </div>
+                        <span className="text-xs font-bold text-gray-300 uppercase italic group-hover:text-white transition-colors">{team.name}</span>
+                    </div>
+                    <div className="text-right">
+                        <span className={`text-sm font-black italic ${color}`}>{team[metric]}</span>
+                        <span className="block text-[8px] text-gray-600 font-black uppercase tracking-tighter">{label}</span>
+                    </div>
+                </div>
+            ))}
+        </div>
     </div>
 );
 
