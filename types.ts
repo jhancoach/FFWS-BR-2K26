@@ -84,6 +84,7 @@ export interface DashboardData {
   characters: CharacterData[];
   teamsReference: TeamReference[];
   playersDimension: GenericDimData[];
+  victimsDimension: GenericDimData[];
   weapons: WeaponData[];
   safes: SafeData[];
   hab1: GenericDimData[];

@@ -138,6 +138,16 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
     return data.teamsReference.find(t => normalize(t.TIME) === normalize(name))?.IMG;
   };
 
+  const getPlayerImg = (name: string, isVictim: boolean = false) => {
+      if (!name) return undefined;
+      const cleanName = normalize(name);
+      if (isVictim) {
+          return data.victimsDimension.find(p => normalize(p.Name) === cleanName)?.IMG;
+      } else {
+          return data.playersDimension.find(p => normalize(p.Name) === cleanName)?.IMG;
+      }
+  };
+
   const weaponList = Object.entries(stats.weaponCounts).map(([name, count]) => ({name, count: count as number}));
   const safeList = Object.entries(stats.safeCounts).map(([name, count]) => ({name, count: count as number}));
   const playerList = Object.entries(stats.playerCounts).map(([name, count]) => ({name, count: count as number}));
@@ -221,7 +231,9 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
                 items={playerList} 
                 icon={<User size={16} className="text-yellow-500"/>} 
                 totalCount={totalEvents} 
-                onSelect={(name) => handleToggleFilter('players', name)}
+                getImage={(name: string) => getPlayerImg(name, tab === 'deaths')}
+                isPlayer
+                onSelect={(name: string) => handleToggleFilter('players', name)}
                 activeValues={filters.players}
             />
         </div>
@@ -326,7 +338,7 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
   );
 };
 
-const RenderList = ({ title, items, icon, totalCount, getImage, isTeam, onSelect, activeValues = [], isVictimList }: any) => (
+const RenderList = ({ title, items, icon, totalCount, getImage, isTeam, isPlayer, onSelect, activeValues = [], isVictimList }: any) => (
     <div className={`bg-[#1a1a1a] rounded-xl border ${isVictimList ? 'border-red-500/20' : 'border-gray-800'} overflow-hidden flex flex-col h-full shadow-lg transition-all ${onSelect ? 'hover:border-yellow-600/30' : ''}`}>
         <div className="p-4 border-b border-gray-800 bg-black/80">
             <h3 className={`font-black uppercase text-[11px] tracking-widest flex items-center gap-2 ${isVictimList ? 'text-red-500' : 'text-white'}`}>
@@ -347,9 +359,9 @@ const RenderList = ({ title, items, icon, totalCount, getImage, isTeam, onSelect
                 >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                         <span className={`text-[10px] font-mono font-bold w-4 ${isActive ? 'text-yellow-500' : 'text-gray-600'}`}>#{i+1}</span>
-                        {isTeam && (
+                        {(isTeam || isPlayer) && (
                             <div className={`w-8 h-8 rounded border p-1 flex items-center justify-center shrink-0 transition-colors bg-black ${isActive ? 'border-yellow-500' : 'border-gray-800'}`}>
-                                {img ? <img src={img} className="w-full h-full object-contain" alt={item.name}/> : <Shield size={12} className="opacity-20" />}
+                                {img ? <img src={img} className="w-full h-full object-contain" alt={item.name}/> : isTeam ? <Shield size={12} className="opacity-20" /> : <User size={12} className="opacity-20" />}
                             </div>
                         )}
                         <div className="flex-1 min-w-0 pr-2">

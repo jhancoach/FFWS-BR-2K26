@@ -495,11 +495,23 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
         });
 
         const playerSafeKillsMap: Record<string, number> = {};
+        const topVictimsMap: Record<string, number> = {};
         data.killFeed.filter((k: any) => normalize(k.PLAYER) === normalize(playerName)).forEach((k: any) => {
              const safe = k.SAFE || 'OUT';
              playerSafeKillsMap[safe] = (playerSafeKillsMap[safe] || 0) + 1;
+             
+             const victim = k.VITIMA;
+             if (victim) topVictimsMap[victim] = (topVictimsMap[victim] || 0) + 1;
         });
         const safeKills = Object.entries(playerSafeKillsMap).map(([name, count]) => ({ name, count })).sort((a,b) => b.count - a.count);
+        const topVictims = Object.entries(topVictimsMap).map(([name, count]) => ({ name, count })).sort((a,b) => b.count - a.count).slice(0, 5);
+
+        const topKillersMap: Record<string, number> = {};
+        data.killFeed.filter((k: any) => normalize(k.VITIMA) === normalize(playerName)).forEach((k: any) => {
+             const killer = k.PLAYER;
+             if (killer) topKillersMap[killer] = (topKillersMap[killer] || 0) + 1;
+        });
+        const topKillers = Object.entries(topKillersMap).map(([name, count]) => ({ name, count })).sort((a,b) => b.count - a.count).slice(0, 5);
 
         const totalKills = records.reduce((acc: number, r: PlayerData) => acc + (parseInt(r.Abates) || 0), 0);
         const totalMatches = records.length; 
@@ -523,7 +535,7 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
             itemImg: findDimImg(data.items, rawLoadout.Item),
         } : null;
 
-        return { team, teamImg, kills: totalKills, matches: totalMatches, avg: totalMatches > 0 ? (totalKills / totalMatches).toFixed(2) : '0.00', loadout: currentLoadout, safeKills, mapKills, roundKills, dropKills };
+        return { team, teamImg, kills: totalKills, matches: totalMatches, avg: totalMatches > 0 ? (totalKills / totalMatches).toFixed(2) : '0.00', loadout: currentLoadout, safeKills, mapKills, roundKills, dropKills, topVictims, topKillers };
     }, [data, playerName, filters, characters]);
 
     return (
@@ -624,6 +636,46 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
                              </div>
                          )) : (
                              <div className="flex-1 flex items-center justify-center text-gray-700 font-black italic uppercase text-[10px]">Sem registros no KillFeed</div>
+                         )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div className="bg-[#0e0e11] p-6 rounded-3xl border border-gray-800 shadow-xl flex flex-col">
+                    <h3 className="text-[11px] font-black text-white uppercase mb-6 flex items-center gap-3 tracking-widest"><Crosshair size={16} className="text-green-500" /> MAIORES VÍTIMAS</h3>
+                    <div className="space-y-4 flex-1">
+                         {stats.topVictims.length > 0 ? stats.topVictims.map((victim, i) => (
+                             <div key={i} className="space-y-2">
+                                 <div className="flex justify-between items-end">
+                                     <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{victim.name}</span>
+                                     <span className="text-xs font-black text-green-500 italic">{victim.count} ABATES</span>
+                                 </div>
+                                 <div className="w-full h-1.5 bg-black rounded-full overflow-hidden border border-white/5">
+                                     <div className="h-full bg-gradient-to-r from-green-600 to-green-400 rounded-full" style={{ width: `${(victim.count / (stats.topVictims[0]?.count || 1)) * 100}%` }}></div>
+                                 </div>
+                             </div>
+                         )) : (
+                             <div className="flex-1 flex items-center justify-center text-gray-700 font-black italic uppercase text-[10px]">Sem vítimas registradas</div>
+                         )}
+                    </div>
+                </div>
+
+                <div className="bg-[#0e0e11] p-6 rounded-3xl border border-gray-800 shadow-xl flex flex-col">
+                    <h3 className="text-[11px] font-black text-white uppercase mb-6 flex items-center gap-3 tracking-widest"><Skull size={16} className="text-red-500" /> MAIORES ALGOZES</h3>
+                    <div className="space-y-4 flex-1">
+                         {stats.topKillers.length > 0 ? stats.topKillers.map((killer, i) => (
+                             <div key={i} className="space-y-2">
+                                 <div className="flex justify-between items-end">
+                                     <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{killer.name}</span>
+                                     <span className="text-xs font-black text-red-500 italic">{killer.count} MORTES</span>
+                                 </div>
+                                 <div className="w-full h-1.5 bg-black rounded-full overflow-hidden border border-white/5">
+                                     <div className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full" style={{ width: `${(killer.count / (stats.topKillers[0]?.count || 1)) * 100}%` }}></div>
+                                 </div>
+                             </div>
+                         )) : (
+                             <div className="flex-1 flex items-center justify-center text-gray-700 font-black italic uppercase text-[10px]">Sem mortes registradas</div>
                          )}
                     </div>
                 </div>

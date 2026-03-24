@@ -72,7 +72,8 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
     const urls = [
       activeUrls.fPlayersDados, activeUrls.fKillFeed, activeUrls.fDetalhes, activeUrls.fPersonagens,
       activeUrls.dTime, activeUrls.dPlayer, activeUrls.dArma, activeUrls.dSafe, activeUrls.dHab1, 
-      activeUrls.dHab2, activeUrls.dHab3, activeUrls.dHab4, activeUrls.dPets, activeUrls.dItem
+      activeUrls.dHab2, activeUrls.dHab3, activeUrls.dHab4, activeUrls.dPets, activeUrls.dItem,
+      activeUrls.dVitima
     ];
 
     const responses = await Promise.all(urls.map(url => safeFetch(url)));
@@ -144,11 +145,12 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
       hab4: normalizeDim(parseCSV<any>(responses[11]), 'Hab4'),
       pets: normalizeDim(parseCSV<any>(responses[12]), 'Pet'),
       items: normalizeDim(parseCSV<any>(responses[13]), 'Item'),
+      victimsDimension: normalizeDim(parseCSV<any>(responses[14]), 'Vitima'),
       loading: false, lastUpdated: new Date()
     };
   } catch (error) {
     console.error("Erro crítico ao buscar dados:", error);
-    return { players: [], killFeed: [], details: [], characters: [], teamsReference: [], playersDimension: [], weapons: [], safes: [], hab1: [], hab2: [], hab3: [], hab4: [], pets: [], items: [], loading: false, lastUpdated: null };
+    return { players: [], killFeed: [], details: [], characters: [], teamsReference: [], playersDimension: [], victimsDimension: [], weapons: [], safes: [], hab1: [], hab2: [], hab3: [], hab4: [], pets: [], items: [], loading: false, lastUpdated: null };
   }
 };
 
