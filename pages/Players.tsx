@@ -24,8 +24,10 @@ const parseNumber = (val: string | undefined | null): number => {
 const Players: React.FC<PlayersProps> = ({ data }) => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<'ranking' | 'chars' | 'report' | 'auditoria' | 'stats' | 'roles' | 'compare'>('ranking');
+  const [rankingSubTab, setRankingSubTab] = useState<'general' | 'maps' | 'safes'>('general');
   const [activeRole, setActiveRole] = useState<string>('');
   const [roleSort, setRoleSort] = useState<{ field: string, direction: 'asc' | 'desc' }>({ field: 'kills', direction: 'desc' });
+  const [rankingSort, setRankingSort] = useState<{ field: string, direction: 'asc' | 'desc' }>({ field: 'kills', direction: 'desc' });
   const [comparePlayers, setComparePlayers] = useState<{p1: string, p2: string}>({p1: '', p2: ''});
   const [activeHabFilter, setActiveHabFilter] = useState<string>('All');
   
@@ -94,6 +96,20 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
       });
       return m;
   }, [data.characters, data.hab1, data.hab2, data.hab3, data.hab4, data.pets, data.items]);
+
+  const allSafeNames = useMemo(() => {
+    const safes = new Set<string>();
+    data.killFeed.forEach(k => {
+        if (k.SAFE) safes.add(k.SAFE);
+        else safes.add('OUT');
+    });
+    return Array.from(safes).sort((a, b) => {
+        const numA = parseInt(a);
+        const numB = parseInt(b);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.localeCompare(b);
+    });
+  }, [data.killFeed]);
 
   // Ranking com Filtragem Estrita (RD AND Q)
   const rankingData = useMemo(() => {
@@ -176,11 +192,15 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
         return matchRD && matchQ;
     });
 
-    const playerSafes = new Map<string, Map<number, number>>();
+    const playerSafes = new Map<string, Map<string, number>>();
+    const allSafeNames = new Set<string>();
+
     filteredKillFeed.forEach(k => {
-        const killer = k.MATADOR;
+        const killer = k.PLAYER; // Fixed from k.MATADOR
         if (!killer) return;
-        const safeVal = parseNumber(k.SAFE);
+        const safeVal = k.SAFE || 'OUT';
+        allSafeNames.add(safeVal);
+        
         if (!playerSafes.has(killer)) playerSafes.set(killer, new Map());
         const sMap = playerSafes.get(killer)!;
         sMap.set(safeVal, (sMap.get(safeVal) || 0) + 1);
@@ -191,9 +211,12 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
         
         const safeKillsMap = playerSafes.get(name) || new Map();
         const safeKills: Record<string, number> = {};
-        for (let i = 1; i <= 8; i++) {
-            safeKills[`safe${i}`] = safeKillsMap.get(i) || 0;
-        }
+        let totalSafeKills = 0;
+        allSafeNames.forEach(safeName => {
+            const count = safeKillsMap.get(safeName) || 0;
+            safeKills[safeName] = count;
+            totalSafeKills += count;
+        });
         
         const mapKills: Record<string, number> = {};
         stat.mapStats.forEach((v, k) => {
@@ -220,14 +243,57 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
             avgDmg: stat.matches > 0 ? (stat.damage / stat.matches).toFixed(0) : '0',
             avgKnocks: stat.matches > 0 ? (stat.knocks / stat.matches).toFixed(2) : '0.00',
             safeKills,
+            totalSafeKills,
             mapKills,
             loadout: charactersMap.get(normalize(name))
         };
-    }).sort((a, b) => b.kills - a.kills);
-  }, [data.players, data.playersDimension, data.killFeed, filters, activeTab, charactersMap]);
+    }).sort((a, b) => {
+        const valA = a[rankingSort.field as keyof typeof a];
+        const valB = b[rankingSort.field as keyof typeof b];
+        
+        // Handle mapKills and safeKills if sorting by them
+        if (rankingSort.field.startsWith('map_')) {
+            const mapName = rankingSort.field.replace('map_', '');
+            const mA = (a.mapKills as any)[mapName] || 0;
+            const mB = (b.mapKills as any)[mapName] || 0;
+            return rankingSort.direction === 'asc' ? mA - mB : mB - mA;
+        }
+        if (rankingSort.field.startsWith('safe_')) {
+            const safeName = rankingSort.field.replace('safe_', '');
+            const sA = (a.safeKills as any)[safeName] || 0;
+            const sB = (b.safeKills as any)[safeName] || 0;
+            return rankingSort.direction === 'asc' ? sA - sB : sB - sA;
+        }
+
+        if (typeof valA === 'string' && typeof valB === 'string') {
+            const numA = parseFloat(valA);
+            const numB = parseFloat(valB);
+            if (!isNaN(numA) && !isNaN(numB)) {
+                return rankingSort.direction === 'asc' ? numA - numB : numB - numA;
+            }
+            return rankingSort.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+
+        const numA = valA as number;
+        const numB = valB as number;
+        
+        if (rankingSort.direction === 'asc') {
+            return numA - numB;
+        } else {
+            return numB - numA;
+        }
+    });
+  }, [data.players, data.playersDimension, data.killFeed, filters, activeTab, charactersMap, rankingSort, allSafeNames]);
 
   const handleRoleSort = (field: string) => {
     setRoleSort(prev => ({
+      field,
+      direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+
+  const handleRankingSort = (field: string) => {
+    setRankingSort(prev => ({
       field,
       direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc'
     }));
@@ -866,20 +932,20 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                       </div>
                   </div>
 
-                  {/* Top Deitados */}
+                  {/* Top Safe Kills */}
                   <div className="bg-[#1a1a1a] rounded-2xl border border-gray-800 p-6 shadow-xl">
                       <div className="flex items-center gap-3 mb-6">
-                          <div className="p-2 bg-orange-500/10 rounded-lg"><Swords className="text-orange-500" size={20} /></div>
-                          <h3 className="text-xs font-black text-white uppercase tracking-widest italic">Top Deitados (Knocks)</h3>
+                          <div className="p-2 bg-emerald-500/10 rounded-lg"><MapPin className="text-emerald-500" size={20} /></div>
+                          <h3 className="text-xs font-black text-white uppercase tracking-widest italic">Top Abates em Safes</h3>
                       </div>
                       <div className="space-y-3">
-                          {rankingData.sort((a,b) => b.knocks - a.knocks).slice(0, 10).map((p, i) => (
-                              <div key={p.name} className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/5 hover:border-orange-500/30 transition-all group">
+                          {rankingData.sort((a,b) => b.totalSafeKills - a.totalSafeKills).slice(0, 10).map((p, i) => (
+                              <div key={p.name} className="flex items-center justify-between p-3 bg-black/40 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-all group">
                                   <div className="flex items-center gap-3">
                                       <span className="text-[10px] font-black text-gray-600 w-4">#{i+1}</span>
-                                      <span className="text-[11px] font-black text-white uppercase italic group-hover:text-orange-500 transition-colors">{p.name}</span>
+                                      <span className="text-[11px] font-black text-white uppercase italic group-hover:text-emerald-500 transition-colors">{p.name}</span>
                                   </div>
-                                  <span className="text-xs font-black text-orange-500 italic">{p.knocks} KNOCKS</span>
+                                  <span className="text-xs font-black text-emerald-500 italic">{p.totalSafeKills} SAFES</span>
                               </div>
                           ))}
                       </div>
@@ -888,41 +954,189 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
           )}
 
           {activeTab === 'ranking' && (
-            <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800 shadow-xl animate-in fade-in duration-300">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left whitespace-nowrap">
-                        <thead className="bg-[#0a0a0a] text-gray-500 text-[10px] uppercase font-bold tracking-widest">
+            <div className="space-y-6 animate-in fade-in duration-300">
+                {/* Sub-tabs para Ranking Geral */}
+                <div className="flex flex-wrap gap-2 p-1 bg-black/20 rounded-xl border border-white/5 w-fit">
+                    {[
+                        { id: 'general', label: 'Estatísticas Gerais', icon: <BarChart2 size={14} /> },
+                        { id: 'maps', label: 'Abates por Mapa', icon: <MapIcon size={14} /> },
+                        { id: 'safes', label: 'Abates por Safe', icon: <Target size={14} /> },
+                    ].map(sub => (
+                        <button
+                            key={sub.id}
+                            onClick={() => setRankingSubTab(sub.id as any)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                                rankingSubTab === sub.id
+                                    ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
+                                    : 'text-gray-500 hover:text-white hover:bg-white/5'
+                            }`}
+                        >
+                            {sub.icon}
+                            {sub.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800 shadow-xl">
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left whitespace-nowrap border-separate border-spacing-0">
+                        <thead className="bg-[#0a0a0a] text-gray-500 text-[9px] uppercase font-bold tracking-widest sticky top-0 z-20">
                             <tr>
-                                <th className="px-6 py-4 w-12 text-center">#</th>
-                                <th className="px-6 py-4">Jogador</th>
-                                <th className="px-6 py-4">Equipe</th>
-                                <th className="px-6 py-4 text-center">Função</th>
-                                <th className="px-6 py-4 text-center">Ativa</th>
-                                <th className="px-6 py-4 text-center text-red-500">Abates</th>
-                                <th className="px-6 py-4 text-center text-gray-500">Dano</th>
-                                <th className="px-6 py-4 text-center text-yellow-500">HS</th>
-                                <th className="px-6 py-4 text-center text-yellow-500">Média</th>
+                                <th className="px-4 py-4 w-12 text-center border-b border-gray-800">#</th>
+                                <th className="px-4 py-4 border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('name')}>
+                                    <div className="flex items-center gap-1">
+                                        Jogador
+                                        {rankingSort.field === 'name' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                    </div>
+                                </th>
+                                <th className="px-4 py-4 border-b border-gray-800">Equipe</th>
+                                <th className="px-4 py-4 text-center border-b border-gray-800">Função</th>
+                                <th className="px-4 py-4 text-center border-b border-gray-800">Ativa</th>
+                                
+                                {rankingSubTab === 'general' && (
+                                    <>
+                                        {/* Colunas de Funções */}
+                                        <th className="px-2 py-4 text-center text-red-500 border-b border-gray-800 cursor-pointer hover:text-red-400 transition-colors" onClick={() => handleRankingSort('kills')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                K
+                                                {rankingSort.field === 'kills' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center text-yellow-500 border-b border-gray-800 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRankingSort('avg')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                AVG K
+                                                {rankingSort.field === 'avg' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('damage')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                DMG
+                                                {rankingSort.field === 'damage' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center text-yellow-500 border-b border-gray-800 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRankingSort('avgDmg')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                AVG D
+                                                {rankingSort.field === 'avgDmg' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('assists')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                AST
+                                                {rankingSort.field === 'assists' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('hs')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                HS
+                                                {rankingSort.field === 'hs' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('knocks')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                KNK
+                                                {rankingSort.field === 'knocks' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center text-yellow-500 border-b border-gray-800 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRankingSort('avgKnocks')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                AVG KNK
+                                                {rankingSort.field === 'avgKnocks' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('matches')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                PJ
+                                                {rankingSort.field === 'matches' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('gelos')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                GLO
+                                                {rankingSort.field === 'gelos' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('gelosDestruidos')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                DES
+                                                {rankingSort.field === 'gelosDestruidos' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('reviveu')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                REV
+                                                {rankingSort.field === 'reviveu' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('aliadosRevividos')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                ALR
+                                                {rankingSort.field === 'aliadosRevividos' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center text-yellow-500 border-b border-gray-800 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRankingSort('mvp')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                MVP
+                                                {rankingSort.field === 'mvp' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                    </>
+                                )}
+
+                                {rankingSubTab === 'maps' && (
+                                    <>
+                                        {/* Abates por Mapa */}
+                                        {filterOptions.maps.map(mapName => (
+                                            <th key={mapName} className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort(`map_${mapName}`)}>
+                                                <div className="flex items-center justify-center gap-1">
+                                                    {mapName}
+                                                    {rankingSort.field === `map_${mapName}` && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                </div>
+                                            </th>
+                                        ))}
+                                    </>
+                                )}
+
+                                {rankingSubTab === 'safes' && (
+                                    <>
+                                        {/* Abates por Safe */}
+                                        <th className="px-2 py-4 text-center text-yellow-500 border-b border-gray-800 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRankingSort('totalSafeKills')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                TOT S
+                                                {rankingSort.field === 'totalSafeKills' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        {allSafeNames.map(safeName => (
+                                            <th key={safeName} className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort(`safe_${safeName}`)}>
+                                                <div className="flex items-center justify-center gap-1">
+                                                    {safeName === 'OUT' ? 'OUT' : `S${safeName}`}
+                                                    {rankingSort.field === `safe_${safeName}` && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                </div>
+                                            </th>
+                                        ))}
+                                    </>
+                                )}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-800 text-sm font-medium">
+                        <tbody className="divide-y divide-gray-800 text-[11px] font-medium">
                             {rankingData.map((player, idx) => (
                                 <tr key={idx} onClick={() => { setFilters(prev => ({...prev, players: [player.name]})); setActiveTab('report'); }} className="hover:bg-yellow-900/10 transition-colors cursor-pointer group">
-                                    <td className="px-6 py-4 text-gray-600 font-mono text-center">{idx + 1}</td>
-                                    <td className="px-6 py-4 font-bold text-white uppercase italic flex items-center gap-2">
+                                    <td className="px-4 py-3 text-gray-600 font-mono text-center">{idx + 1}</td>
+                                    <td className="px-4 py-3 font-bold text-white uppercase italic flex items-center gap-2">
                                         {player.name}
-                                        <ChevronRight size={14} className="text-yellow-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <ChevronRight size={12} className="text-yellow-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </td>
-                                    <td className="px-6 py-4 text-gray-400 uppercase text-[10px] tracking-widest">{player.team}</td>
-                                    <td className="px-6 py-4 text-center">
+                                    <td className="px-4 py-3 text-gray-400 uppercase text-[9px] tracking-widest">{player.team}</td>
+                                    <td className="px-4 py-3 text-center">
                                         <div className="flex flex-col items-center">
-                                            <span className={`text-[10px] font-black uppercase italic ${player.funcao === 'CPT' ? 'text-yellow-500' : 'text-gray-400'}`}>{player.funcao}</span>
-                                            {player.funcao2 !== 'N/A' && <span className="text-[8px] text-gray-600 font-bold uppercase">{player.funcao2}</span>}
+                                            <span className={`text-[9px] font-black uppercase italic ${player.funcao === 'CPT' ? 'text-yellow-500' : 'text-gray-400'}`}>{player.funcao}</span>
+                                            {player.funcao2 !== 'N/A' && <span className="text-[7px] text-gray-600 font-bold uppercase">{player.funcao2}</span>}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-center">
+                                    <td className="px-4 py-3 text-center">
                                         {player.loadout?.hab1Img ? (
                                             <div className="flex justify-center items-center">
-                                                <div className="w-8 h-8 rounded-lg bg-black border border-yellow-500/30 p-1 shadow-[0_0_10px_rgba(234,179,8,0.2)]">
+                                                <div className="w-6 h-6 rounded-lg bg-black border border-yellow-500/30 p-1 shadow-[0_0_10px_rgba(234,179,8,0.2)]">
                                                     <img src={player.loadout.hab1Img} className="w-full h-full object-contain" alt={player.loadout.Hab1} />
                                                 </div>
                                             </div>
@@ -930,16 +1144,56 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                                             <span className="text-gray-700 font-black italic opacity-20">-</span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 text-center text-red-400 font-black text-lg">{player.kills}</td>
-                                    <td className="px-6 py-4 text-center text-gray-300 font-mono">{player.damage}</td>
-                                    <td className="px-6 py-4 text-center text-yellow-500 font-mono">{player.hs}</td>
-                                    <td className="px-6 py-4 text-center text-yellow-400 font-bold">{player.avg}</td>
+                                    
+                                    {rankingSubTab === 'general' && (
+                                        <>
+                                            {/* Dados de Funções */}
+                                            <td className="px-2 py-3 text-center text-red-400 font-black text-sm">{player.kills}</td>
+                                            <td className="px-2 py-3 text-center text-yellow-500 font-black italic bg-yellow-500/5">{player.avg}</td>
+                                            <td className="px-2 py-3 text-center text-gray-300 font-mono">{player.damage}</td>
+                                            <td className="px-2 py-3 text-center text-yellow-500 font-black italic bg-yellow-500/5">{player.avgDmg}</td>
+                                            <td className="px-2 py-3 text-center text-blue-400 font-black">{player.assists}</td>
+                                            <td className="px-2 py-3 text-center text-yellow-500 font-mono">{player.hs}</td>
+                                            <td className="px-2 py-3 text-center text-orange-500 font-black">{player.knocks}</td>
+                                            <td className="px-2 py-3 text-center text-yellow-500 font-black italic bg-yellow-500/5">{player.avgKnocks}</td>
+                                            <td className="px-2 py-3 text-center text-white font-black">{player.matches}</td>
+                                            <td className="px-2 py-3 text-center text-cyan-400 font-mono">{player.gelos}</td>
+                                            <td className="px-2 py-3 text-center text-purple-400 font-mono">{player.gelosDestruidos}</td>
+                                            <td className="px-2 py-3 text-center text-green-400 font-mono">{player.reviveu}</td>
+                                            <td className="px-2 py-3 text-center text-emerald-400 font-mono">{player.aliadosRevividos}</td>
+                                            <td className="px-2 py-3 text-center text-yellow-500 font-black italic bg-yellow-500/5">{player.mvp}</td>
+                                        </>
+                                    )}
+
+                                    {rankingSubTab === 'maps' && (
+                                        <>
+                                            {/* Abates por Mapa */}
+                                            {filterOptions.maps.map(mapName => (
+                                                <td key={mapName} className="px-2 py-3 text-center text-gray-400 font-mono">
+                                                    {player.mapKills[mapName] || 0}
+                                                </td>
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {rankingSubTab === 'safes' && (
+                                        <>
+                                            {/* Abates por Safe */}
+                                            <td className="px-2 py-3 text-center text-yellow-500 font-black italic bg-yellow-500/5">{player.totalSafeKills}</td>
+                                            {allSafeNames.map(safeName => (
+                                                <td key={safeName} className="px-2 py-3 text-center text-gray-500 font-mono">
+                                                    {player.safeKills[safeName] || 0}
+                                                </td>
+                                            ))}
+                                        </>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
             </div>
+          </div>
           )}
 
           {activeTab === 'auditoria' && (
