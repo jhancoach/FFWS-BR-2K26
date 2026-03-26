@@ -35,6 +35,12 @@ const cleanKey = (s: string) =>
    .replace(/[^a-z0-9]/g, "")
    .trim();
 
+const parseNumber = (val: string | undefined | null): number => {
+  if (!val) return 0;
+  const cleaned = val.toString().replace(/\D/g, '');
+  return parseInt(cleaned) || 0;
+};
+
 const getVal = (row: any, aliases: string[]) => {
   const keys = Object.keys(row);
   for (const alias of aliases) {
@@ -51,7 +57,9 @@ const normalizeDim = (data: any[], keyName: string): GenericDimData[] => {
   return data.map(row => {
     let name = getVal(row, [keyName, keyName.replace(/(\d)/, ' $1'), 'Nome', 'Name', 'NOME', 'PERSONAGEM', 'PLAYER', 'JOGADOR', 'PET', 'ITEM', 'HABILIDADE']);
     let img = getVal(row, ['IMG', 'Img', 'img', 'Imagem', 'URL', 'Url', 'Link', 'IMAGEM', 'FOTO', 'FOTO PLAYER']);
-    return { Name: name || '', IMG: img || '' };
+    let funcao = getVal(row, ['FUNÇÃO', 'FUNCAO', 'Função', 'Funcao', 'ROLE', 'Role']);
+    let funcao2 = getVal(row, ['FUNÇÃO 2', 'FUNCAO 2', 'Função 2', 'Funcao 2', 'ROLE 2', 'Role 2']);
+    return { Name: name || '', IMG: img || '', Funcao: funcao, Funcao2: funcao2 };
   }).filter(r => r.Name && r.Name.trim() !== '');
 };
 
@@ -84,6 +92,15 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
         TIME: getVal(row, ['TIME', 'Time', 'Equipe', 'EQUIPE', 'TAG']),
         S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDAS']),
         Abates: getVal(row, ['ABATES', 'Abates', 'Kills', 'KILLS', 'ABTS', 'KILL']) || '0',
+        Dano: getVal(row, ['DANO', 'Damage', 'DMG']),
+        HS: getVal(row, ['HS', 'Headshot', 'HEADSHOTS', 'CAPA']),
+        Deitados: getVal(row, ['DEITADOS', 'Knockdowns', 'KNOCKS', 'DEITOU']),
+        Assistencias: getVal(row, ['ASSISTENCIAS', 'Assists', 'ASSIST']),
+        Gelos: getVal(row, ['GELOS', 'Walls', 'GELO']),
+        GelosDestruidos: getVal(row, ['GELOS DESTRUIDOS', 'Walls Destroyed', 'GELO DESTRUIDO']),
+        Reviveu: getVal(row, ['REVIVEU', 'Revived']),
+        AliadosRevividos: getVal(row, ['ALIADOS REVIVIDOS', 'Allies Revived']),
+        MVP: getVal(row, ['MVP', 'Mvp', 'M.V.P']),
         MAPA: getVal(row, ['MAPA', 'Mapa', 'Map']),
         RD: getVal(row, ['RD', 'Rd', 'Rodada', 'Round']),
         Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
@@ -177,16 +194,16 @@ export const calculateTeamStats = (data: DashboardData): TeamStats[] => {
     }
     
     const stats = teamMap.get(teamName)!;
-    stats.pts += parseInt(row.PTS) || 0;
-    stats.ptsc += parseInt(row.PTSC) || 0;
-    stats.abts += parseInt(row.ABTS) || 0;
-    stats.b += parseInt(row.B) || 0;
-    stats.s += parseInt(row.S) || 0;
+    stats.pts += parseNumber(row.PTS);
+    stats.ptsc += parseNumber(row.PTSC);
+    stats.abts += parseNumber(row.ABTS);
+    stats.b += parseNumber(row.B);
+    stats.s += parseNumber(row.S);
 
     // Lógica para rastrear a posição na última queda real
-    const currentRD = parseInt(row.RD.replace(/\D/g, '')) || 0;
-    const currentQ = parseInt(row.Q.replace(/\D/g, '')) || 0;
-    const currentPos = parseInt(row.POS) || 99;
+    const currentRD = parseNumber(row.RD);
+    const currentQ = parseNumber(row.Q);
+    const currentPos = parseNumber(row.POS) || 99;
 
     const last = lastMatchTracker.get(teamName);
     if (!last || (currentRD > last.rd) || (currentRD === last.rd && currentQ > last.q)) {

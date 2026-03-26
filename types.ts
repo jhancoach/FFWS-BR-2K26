@@ -4,6 +4,15 @@ export interface PlayerData {
   TIME: string;   
   S: string;      
   Abates: string;
+  Dano?: string;
+  HS?: string;
+  Deitados?: string;
+  Assistencias?: string;
+  Gelos?: string;
+  GelosDestruidos?: string;
+  Reviveu?: string;
+  AliadosRevividos?: string;
+  MVP?: string;
   MAPA?: string;
   RD?: string;
   Q?: string;
@@ -69,6 +78,8 @@ export interface SafeData {
 export interface GenericDimData {
   Name: string; 
   IMG: string;
+  Funcao?: string;
+  Funcao2?: string;
 }
 
 export interface AppConfig {
