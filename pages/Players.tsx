@@ -174,25 +174,28 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
         return matchRD && matchQ;
     });
 
-    const playerSafes = new Map<string, number[]>();
+    const playerSafes = new Map<string, Map<number, number>>();
     filteredKillFeed.forEach(k => {
         const killer = k.MATADOR;
         if (!killer) return;
         const safeVal = parseNumber(k.SAFE);
-        if (!playerSafes.has(killer)) playerSafes.set(killer, []);
-        playerSafes.get(killer)!.push(safeVal);
+        if (!playerSafes.has(killer)) playerSafes.set(killer, new Map());
+        const sMap = playerSafes.get(killer)!;
+        sMap.set(safeVal, (sMap.get(safeVal) || 0) + 1);
     });
 
     return Array.from(statsMap.entries()).map(([name, stat]) => {
         const dim = data.playersDimension.find(d => normalize(d.Name) === normalize(name));
         
-        const safes = playerSafes.get(name) || [];
-        const avgSafe = safes.length > 0 ? (safes.reduce((a, b) => a + b, 0) / safes.length).toFixed(2) : '0.00';
+        const safeKillsMap = playerSafes.get(name) || new Map();
+        const safeKills: Record<string, number> = {};
+        for (let i = 1; i <= 8; i++) {
+            safeKills[`safe${i}`] = safeKillsMap.get(i) || 0;
+        }
         
-        let bestMapAvg = 0;
-        stat.mapStats.forEach(v => {
-            const avg = v.kills / v.matches;
-            if (avg > bestMapAvg) bestMapAvg = avg;
+        const mapKills: Record<string, number> = {};
+        stat.mapStats.forEach((v, k) => {
+            mapKills[k] = v.kills;
         });
 
         return {
@@ -213,8 +216,8 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
             funcao2: dim?.Funcao2 || 'N/A',
             avg: stat.matches > 0 ? (stat.kills / stat.matches).toFixed(2) : '0.00',
             avgDmg: stat.matches > 0 ? (stat.damage / stat.matches).toFixed(0) : '0',
-            avgSafe,
-            bestMapAvg: bestMapAvg.toFixed(2),
+            safeKills,
+            mapKills,
             loadout: charactersMap.get(normalize(name))
         };
     }).sort((a, b) => b.kills - a.kills);
@@ -547,53 +550,125 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                   </div>
 
                   {compareData.p1 && compareData.p2 && (
-                      <div className="bg-[#1a1a1a] rounded-3xl border border-gray-800 overflow-hidden shadow-2xl">
-                          <div className="bg-black/40 px-8 py-6 border-b border-white/5 text-center">
-                              <h3 className="text-sm font-black text-yellow-500 uppercase tracking-[0.3em] italic">Comparativo de Performance</h3>
-                          </div>
-                          <div className="p-8 space-y-6">
-                              {[
-                                  { label: 'Abates Totais', key: 'kills' },
-                                  { label: 'Abates por Mapa (Melhor)', key: 'bestMapAvg' },
-                                  { label: 'Abates por Queda', key: 'avg' },
-                                  { label: 'Abates por Safe (Média)', key: 'avgSafe' },
-                                  { label: 'Partidas Jogadas', key: 'matches' },
-                                  { label: 'Dano Total', key: 'damage' },
-                                  { label: 'Média Dano', key: 'avgDmg' },
-                                  { label: 'Assistências', key: 'assists' },
-                                  { label: 'Headshots', key: 'hs' },
-                                  { label: 'Deitados', key: 'knocks' },
-                                  { label: 'Gelos', key: 'gelos' },
-                                  { label: 'Gelos Destruídos', key: 'gelosDestruidos' },
-                                  { label: 'Reviveu', key: 'reviveu' },
-                                  { label: 'Aliados Revividos', key: 'aliadosRevividos' },
-                                  { label: 'MVP', key: 'mvp' },
-                              ].map((stat) => {
-                                  const val1 = parseFloat(compareData.p1![stat.key as keyof typeof compareData.p1]);
-                                  const val2 = parseFloat(compareData.p2![stat.key as keyof typeof compareData.p2]);
-                                  const isP1Better = val1 > val2;
-                                  const isP2Better = val2 > val1;
+                      <div className="space-y-8">
+                          {/* Estatísticas Gerais */}
+                          <div className="bg-[#1a1a1a] rounded-3xl border border-gray-800 overflow-hidden shadow-2xl">
+                              <div className="bg-black/40 px-8 py-6 border-b border-white/5 text-center">
+                                  <h3 className="text-sm font-black text-yellow-500 uppercase tracking-[0.3em] italic">Comparativo de Performance</h3>
+                              </div>
+                              <div className="p-8 space-y-6">
+                                  {[
+                                      { label: 'Abates Totais', key: 'kills' },
+                                      { label: 'Abates por Queda', key: 'avg' },
+                                      { label: 'Partidas Jogadas', key: 'matches' },
+                                      { label: 'Dano Total', key: 'damage' },
+                                      { label: 'Média Dano', key: 'avgDmg' },
+                                      { label: 'Assistências', key: 'assists' },
+                                      { label: 'Headshots', key: 'hs' },
+                                      { label: 'Deitados', key: 'knocks' },
+                                      { label: 'Gelos', key: 'gelos' },
+                                      { label: 'Gelos Destruídos', key: 'gelosDestruidos' },
+                                      { label: 'Reviveu', key: 'reviveu' },
+                                      { label: 'Aliados Revividos', key: 'aliadosRevividos' },
+                                      { label: 'MVP', key: 'mvp' },
+                                  ].map((stat) => {
+                                      const val1 = parseFloat(compareData.p1![stat.key as keyof typeof compareData.p1] as any);
+                                      const val2 = parseFloat(compareData.p2![stat.key as keyof typeof compareData.p2] as any);
+                                      const isP1Better = val1 > val2;
+                                      const isP2Better = val2 > val1;
 
-                                  return (
-                                      <div key={stat.key} className="space-y-2">
-                                          <div className="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                                              <span className={isP1Better ? 'text-yellow-500' : ''}>{compareData.p1![stat.key as keyof typeof compareData.p1]}</span>
-                                              <span className="text-white">{stat.label}</span>
-                                              <span className={isP2Better ? 'text-blue-500' : ''}>{compareData.p2![stat.key as keyof typeof compareData.p2]}</span>
+                                      return (
+                                          <div key={stat.key} className="space-y-2">
+                                              <div className="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                                  <span className={isP1Better ? 'text-yellow-500' : ''}>{compareData.p1![stat.key as keyof typeof compareData.p1] as any}</span>
+                                                  <span className="text-white">{stat.label}</span>
+                                                  <span className={isP2Better ? 'text-blue-500' : ''}>{compareData.p2![stat.key as keyof typeof compareData.p2] as any}</span>
+                                              </div>
+                                              <div className="h-2 bg-black rounded-full overflow-hidden flex">
+                                                  <div 
+                                                      className={`h-full transition-all duration-1000 ${isP1Better ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-gray-800'}`} 
+                                                      style={{ width: `${(val1 / (val1 + val2 || 1)) * 100}%` }}
+                                                  ></div>
+                                                  <div 
+                                                      className={`h-full transition-all duration-1000 ${isP2Better ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-gray-800'}`} 
+                                                      style={{ width: `${(val2 / (val1 + val2 || 1)) * 100}%` }}
+                                                  ></div>
+                                              </div>
                                           </div>
-                                          <div className="h-2 bg-black rounded-full overflow-hidden flex">
-                                              <div 
-                                                  className={`h-full transition-all duration-1000 ${isP1Better ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-gray-800'}`} 
-                                                  style={{ width: `${(val1 / (val1 + val2 || 1)) * 100}%` }}
-                                              ></div>
-                                              <div 
-                                                  className={`h-full transition-all duration-1000 ${isP2Better ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-gray-800'}`} 
-                                                  style={{ width: `${(val2 / (val1 + val2 || 1)) * 100}%` }}
-                                              ></div>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+
+                          {/* Abates por Mapa */}
+                          <div className="bg-[#1a1a1a] rounded-3xl border border-gray-800 overflow-hidden shadow-2xl">
+                              <div className="bg-black/40 px-8 py-6 border-b border-white/5 text-center">
+                                  <h3 className="text-sm font-black text-yellow-500 uppercase tracking-[0.3em] italic">Abates por Mapa</h3>
+                              </div>
+                              <div className="p-8 space-y-6">
+                                  {Array.from(new Set([...Object.keys(compareData.p1.mapKills), ...Object.keys(compareData.p2.mapKills)])).sort().map(mapName => {
+                                      const val1 = compareData.p1!.mapKills[mapName] || 0;
+                                      const val2 = compareData.p2!.mapKills[mapName] || 0;
+                                      const isP1Better = val1 > val2;
+                                      const isP2Better = val2 > val1;
+
+                                      return (
+                                          <div key={mapName} className="space-y-2">
+                                              <div className="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                                  <span className={isP1Better ? 'text-yellow-500' : ''}>{val1}</span>
+                                                  <span className="text-white">{mapName}</span>
+                                                  <span className={isP2Better ? 'text-blue-500' : ''}>{val2}</span>
+                                              </div>
+                                              <div className="h-2 bg-black rounded-full overflow-hidden flex">
+                                                  <div 
+                                                      className={`h-full transition-all duration-1000 ${isP1Better ? 'bg-yellow-500' : 'bg-gray-800'}`} 
+                                                      style={{ width: `${(val1 / (val1 + val2 || 1)) * 100}%` }}
+                                                  ></div>
+                                                  <div 
+                                                      className={`h-full transition-all duration-1000 ${isP2Better ? 'bg-blue-500' : 'bg-gray-800'}`} 
+                                                      style={{ width: `${(val2 / (val1 + val2 || 1)) * 100}%` }}
+                                                  ></div>
+                                              </div>
                                           </div>
-                                      </div>
-                                  );
-                              })}
+                                      );
+                                  })}
+                              </div>
+                          </div>
+
+                          {/* Abates por Safe */}
+                          <div className="bg-[#1a1a1a] rounded-3xl border border-gray-800 overflow-hidden shadow-2xl">
+                              <div className="bg-black/40 px-8 py-6 border-b border-white/5 text-center">
+                                  <h3 className="text-sm font-black text-yellow-500 uppercase tracking-[0.3em] italic">Abates por Safe</h3>
+                              </div>
+                              <div className="p-8 space-y-6">
+                                  {[1, 2, 3, 4, 5, 6, 7, 8].map(safeNum => {
+                                      const key = `safe${safeNum}`;
+                                      const val1 = compareData.p1!.safeKills[key] || 0;
+                                      const val2 = compareData.p2!.safeKills[key] || 0;
+                                      const isP1Better = val1 > val2;
+                                      const isP2Better = val2 > val1;
+
+                                      return (
+                                          <div key={key} className="space-y-2">
+                                              <div className="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                                  <span className={isP1Better ? 'text-yellow-500' : ''}>{val1}</span>
+                                                  <span className="text-white">Safe {safeNum}</span>
+                                                  <span className={isP2Better ? 'text-blue-500' : ''}>{val2}</span>
+                                              </div>
+                                              <div className="h-2 bg-black rounded-full overflow-hidden flex">
+                                                  <div 
+                                                      className={`h-full transition-all duration-1000 ${isP1Better ? 'bg-yellow-500' : 'bg-gray-800'}`} 
+                                                      style={{ width: `${(val1 / (val1 + val2 || 1)) * 100}%` }}
+                                                  ></div>
+                                                  <div 
+                                                      className={`h-full transition-all duration-1000 ${isP2Better ? 'bg-blue-500' : 'bg-gray-800'}`} 
+                                                      style={{ width: `${(val2 / (val1 + val2 || 1)) * 100}%` }}
+                                                  ></div>
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
+                              </div>
                           </div>
                       </div>
                   )}
