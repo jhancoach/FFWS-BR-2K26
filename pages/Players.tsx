@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DashboardData, PlayerData, CharacterData } from '../types';
-import { Trophy, Crown, User, Swords, Zap, BarChart2, Scale, Map as MapIcon, Skull, ChevronRight, Sparkles, X, Activity, Info, Crosshair, Shield, ArrowLeft, Disc, Flame, Target, AlertCircle, LayoutGrid, MapPin, Hash, Target as TargetIcon, CheckCircle2, AlertTriangle, Search } from 'lucide-react';
+import { Trophy, Crown, User, Swords, Zap, BarChart2, Scale, Map as MapIcon, Skull, ChevronRight, ChevronDown, ChevronUp, Sparkles, X, Activity, Info, Crosshair, Shield, ArrowLeft, Disc, Flame, Target, AlertCircle, LayoutGrid, MapPin, Hash, Target as TargetIcon, CheckCircle2, AlertTriangle, Search } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, LabelList, Cell, YAxis, CartesianGrid } from 'recharts';
 import FilterBar from '../components/FilterBar';
 
@@ -24,6 +24,8 @@ const parseNumber = (val: string | undefined | null): number => {
 const Players: React.FC<PlayersProps> = ({ data }) => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<'ranking' | 'chars' | 'report' | 'auditoria' | 'stats' | 'roles' | 'compare'>('ranking');
+  const [activeRole, setActiveRole] = useState<string>('');
+  const [roleSort, setRoleSort] = useState<{ field: string, direction: 'asc' | 'desc' }>({ field: 'kills', direction: 'desc' });
   const [comparePlayers, setComparePlayers] = useState<{p1: string, p2: string}>({p1: '', p2: ''});
   const [activeHabFilter, setActiveHabFilter] = useState<string>('All');
   
@@ -216,12 +218,20 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
             funcao2: dim?.Funcao2 || 'N/A',
             avg: stat.matches > 0 ? (stat.kills / stat.matches).toFixed(2) : '0.00',
             avgDmg: stat.matches > 0 ? (stat.damage / stat.matches).toFixed(0) : '0',
+            avgKnocks: stat.matches > 0 ? (stat.knocks / stat.matches).toFixed(2) : '0.00',
             safeKills,
             mapKills,
             loadout: charactersMap.get(normalize(name))
         };
     }).sort((a, b) => b.kills - a.kills);
   }, [data.players, data.playersDimension, data.killFeed, filters, activeTab, charactersMap]);
+
+  const handleRoleSort = (field: string) => {
+    setRoleSort(prev => ({
+      field,
+      direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
 
   // Auditoria de Kills com a mesma Filtragem Estrita
   const rolesData = useMemo(() => {
@@ -238,8 +248,11 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
             kills: stats?.kills || 0,
             avg: stats?.avg || '0.00',
             damage: stats?.damage || 0,
+            avgDmg: stats?.avgDmg || '0',
             hs: stats?.hs || 0,
             knocks: stats?.knocks || 0,
+            avgKnocks: stats?.avgKnocks || '0.00',
+            matches: stats?.matches || 0,
             assists: stats?.assists || 0,
             gelos: stats?.gelos || 0,
             gelosDestruidos: stats?.gelosDestruidos || 0,
@@ -266,6 +279,23 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
     
     const bestsByRole = roles.map(role => {
         const rolePlayers = playersWithRoles.filter(p => p.funcao === role);
+        
+        // Sort players based on roleSort state
+        const sortedPlayers = [...rolePlayers].sort((a, b) => {
+            const valA = a[roleSort.field];
+            const valB = b[roleSort.field];
+            
+            // Handle numeric strings (like avg stats)
+            const numA = typeof valA === 'string' ? parseFloat(valA) : valA;
+            const numB = typeof valB === 'string' ? parseFloat(valB) : valB;
+            
+            if (roleSort.direction === 'asc') {
+                return numA - numB;
+            } else {
+                return numB - numA;
+            }
+        });
+
         return {
             role,
             bestKills: [...rolePlayers].sort((a,b) => b.kills - a.kills)[0],
@@ -278,12 +308,12 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
             bestReviveu: [...rolePlayers].sort((a,b) => b.reviveu - a.reviveu)[0],
             bestAliadosRevividos: [...rolePlayers].sort((a,b) => b.aliadosRevividos - a.aliadosRevividos)[0],
             bestMVP: [...rolePlayers].sort((a,b) => b.mvp - a.mvp)[0],
-            players: rolePlayers.sort((a,b) => b.kills - a.kills)
+            players: sortedPlayers
         };
     });
 
     return { players: playersWithRoles, bestsByRole };
-  }, [data.playersDimension, rankingData, activeTab]);
+  }, [data.playersDimension, rankingData, activeTab, roleSort]);
 
   const auditData = useMemo(() => {
     if (activeTab !== 'auditoria') return [];
@@ -398,10 +428,29 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
 
       <div className="min-h-[600px]">
           {activeTab === 'roles' && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                      {/* Agrupamento por Função */}
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
+                  {/* Seleção de Função */}
+                  <div className="flex flex-wrap gap-2 p-1 bg-black/20 rounded-xl border border-white/5">
                       {rolesData.bestsByRole.map(group => (
+                          <button
+                              key={group.role}
+                              onClick={() => setActiveRole(group.role)}
+                              className={`px-6 py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                                  (activeRole === group.role || (!activeRole && rolesData.bestsByRole[0]?.role === group.role))
+                                      ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20 scale-105'
+                                      : 'text-gray-500 hover:text-white hover:bg-white/5'
+                              }`}
+                          >
+                              {group.role}
+                          </button>
+                      ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-8">
+                      {/* Agrupamento por Função */}
+                      {rolesData.bestsByRole
+                        .filter(group => !activeRole ? group.role === rolesData.bestsByRole[0]?.role : group.role === activeRole)
+                        .map(group => (
                           <div key={group.role} className="bg-[#1a1a1a] rounded-3xl border border-gray-800 overflow-hidden shadow-2xl flex flex-col">
                               <div className="bg-gradient-to-r from-black/60 to-transparent px-8 py-5 border-b border-white/5 flex items-center justify-between">
                                   <div className="flex items-center gap-3">
@@ -431,52 +480,135 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                                   ))}
                               </div>
 
-                              <div className="p-4 overflow-x-auto custom-scrollbar">
-                                  <table className="w-full text-left border-separate border-spacing-y-2">
+                              <div className="p-2 overflow-x-auto custom-scrollbar">
+                                  <table className="w-full text-left border-separate border-spacing-y-1">
                                       <thead>
-                                          <tr className="text-[9px] font-black text-gray-500 uppercase tracking-widest">
-                                              <th className="px-4 py-2">Jogador</th>
-                                              <th className="px-2 py-2 text-center">K</th>
-                                              <th className="px-2 py-2 text-center">DMG</th>
-                                              <th className="px-2 py-2 text-center">AST</th>
-                                              <th className="px-2 py-2 text-center">HS</th>
-                                              <th className="px-2 py-2 text-center">KNK</th>
-                                              <th className="px-2 py-2 text-center">GLO</th>
-                                              <th className="px-2 py-2 text-center">DES</th>
-                                              <th className="px-2 py-2 text-center">REV</th>
-                                              <th className="px-2 py-2 text-center">ALR</th>
-                                              <th className="px-2 py-2 text-center text-yellow-500">MVP</th>
+                                          <tr className="text-[8px] font-black text-gray-500 uppercase tracking-widest">
+                                              <th className="px-3 py-2 cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('name')}>
+                                                  <div className="flex items-center gap-1">
+                                                      Jogador
+                                                      {roleSort.field === 'name' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('kills')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      K
+                                                      {roleSort.field === 'kills' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center text-yellow-500 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRoleSort('avg')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      AVG K
+                                                      {roleSort.field === 'avg' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('damage')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      DMG
+                                                      {roleSort.field === 'damage' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center text-yellow-500 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRoleSort('avgDmg')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      AVG D
+                                                      {roleSort.field === 'avgDmg' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('assists')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      AST
+                                                      {roleSort.field === 'assists' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('hs')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      HS
+                                                      {roleSort.field === 'hs' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('knocks')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      KNK
+                                                      {roleSort.field === 'knocks' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center text-yellow-500 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRoleSort('avgKnocks')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      AVG KNK
+                                                      {roleSort.field === 'avgKnocks' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('matches')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      PJ
+                                                      {roleSort.field === 'matches' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('gelos')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      GLO
+                                                      {roleSort.field === 'gelos' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('gelosDestruidos')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      DES
+                                                      {roleSort.field === 'gelosDestruidos' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('reviveu')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      REV
+                                                      {roleSort.field === 'reviveu' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('aliadosRevividos')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      ALR
+                                                      {roleSort.field === 'aliadosRevividos' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
+                                              <th className="px-1 py-2 text-center text-yellow-500 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRoleSort('mvp')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      MVP
+                                                      {roleSort.field === 'mvp' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
                                           </tr>
                                       </thead>
                                       <tbody>
                                           {group.players.map(p => {
                                               return (
-                                                  <tr key={`${group.role}-${p.name}`} onClick={() => { setFilters(prev => ({...prev, players: [p.name]})); setActiveTab('report'); }} className="bg-black/40 hover:bg-white/5 transition-all cursor-pointer group rounded-xl">
-                                                      <td className="px-4 py-3 rounded-l-xl">
-                                                          <div className="flex items-center gap-3">
-                                                              <div className="w-8 h-8 rounded-full bg-black border border-white/10 overflow-hidden flex-shrink-0">
+                                                  <tr key={`${group.role}-${p.name}`} onClick={() => { setFilters(prev => ({...prev, players: [p.name]})); setActiveTab('report'); }} className="bg-black/40 hover:bg-white/5 transition-all cursor-pointer group rounded-lg">
+                                                      <td className="px-3 py-2 rounded-l-lg">
+                                                          <div className="flex items-center gap-2">
+                                                              <div className="w-6 h-6 rounded-full bg-black border border-white/10 overflow-hidden flex-shrink-0">
                                                                   {p.img ? (
                                                                       <img src={p.img} className="w-full h-full object-cover" alt={p.name} referrerPolicy="no-referrer" />
                                                                   ) : (
-                                                                      <div className="w-full h-full flex items-center justify-center text-gray-700 bg-black"><User size={16} /></div>
+                                                                      <div className="w-full h-full flex items-center justify-center text-gray-700 bg-black"><User size={12} /></div>
                                                                   )}
                                                               </div>
                                                               <div className="flex flex-col min-w-0">
-                                                                  <span className="text-[11px] font-black text-white uppercase italic truncate group-hover:text-yellow-500 transition-colors">{p.name}</span>
-                                                                  <span className="text-[8px] font-black text-gray-600 uppercase truncate">{p.team}</span>
+                                                                  <span className="text-[10px] font-black text-white uppercase italic truncate group-hover:text-yellow-500 transition-colors">{p.name}</span>
+                                                                  <span className="text-[7px] font-black text-gray-600 uppercase truncate">{p.team}</span>
                                                               </div>
                                                           </div>
                                                       </td>
-                                                      <td className="px-2 py-3 text-center text-[11px] font-black text-red-500 italic">{p.kills}</td>
-                                                      <td className="px-2 py-3 text-center text-[10px] font-mono text-gray-400">{p.damage}</td>
-                                                      <td className="px-2 py-3 text-center text-[10px] font-black text-blue-400">{p.assists}</td>
-                                                      <td className="px-2 py-3 text-center text-[10px] font-mono text-yellow-500/70">{p.hs}</td>
-                                                      <td className="px-2 py-3 text-center text-[10px] font-black text-orange-500">{p.knocks}</td>
-                                                      <td className="px-2 py-3 text-center text-[10px] font-mono text-cyan-400">{p.gelos}</td>
-                                                      <td className="px-2 py-3 text-center text-[10px] font-mono text-purple-400">{p.gelosDestruidos}</td>
-                                                      <td className="px-2 py-3 text-center text-[10px] font-mono text-green-400">{p.reviveu}</td>
-                                                      <td className="px-2 py-3 text-center text-[10px] font-mono text-emerald-400">{p.aliadosRevividos}</td>
-                                                      <td className="px-2 py-3 text-center text-[11px] font-black text-yellow-500 italic rounded-r-xl bg-yellow-500/5">{p.mvp}</td>
+                                                      <td className="px-1 py-2 text-center text-[10px] font-black text-red-500 italic">{p.kills}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-black text-yellow-500 italic bg-yellow-500/5">{p.avg}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-mono text-gray-400">{p.damage}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-black text-yellow-500 italic bg-yellow-500/5">{p.avgDmg}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-black text-blue-400">{p.assists}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-mono text-yellow-500/70">{p.hs}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-black text-orange-500">{p.knocks}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-black text-yellow-500 italic bg-yellow-500/5">{p.avgKnocks}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-black text-white">{p.matches}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-mono text-cyan-400">{p.gelos}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-mono text-purple-400">{p.gelosDestruidos}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-mono text-green-400">{p.reviveu}</td>
+                                                      <td className="px-1 py-2 text-center text-[9px] font-mono text-emerald-400">{p.aliadosRevividos}</td>
+                                                      <td className="px-1 py-2 text-center text-[10px] font-black text-yellow-500 italic rounded-r-lg bg-yellow-500/5">{p.mvp}</td>
                                                   </tr>
                                               );
                                           })}
