@@ -113,7 +113,8 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
   const stats = useMemo(() => {
     const weaponCounts: Record<string, number> = {};
     const safeCounts: Record<string, number> = {};
-    const playerCounts: Record<string, number> = {}; 
+    const killerPlayerCounts: Record<string, number> = {}; 
+    const victimPlayerCounts: Record<string, number> = {}; 
     const killerTeamCounts: Record<string, number> = {};
     const victimTeamCounts: Record<string, number> = {};
 
@@ -125,10 +126,12 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
             safeCounts[row.SAFE] = (safeCounts[row.SAFE] || 0) + 1;
         }
         
-        // Jogadores principais por aba
-        const pName = tab === 'kills' ? row.PLAYER : row.VITIMA;
-        if (pName && pName.trim() !== '') {
-            playerCounts[pName] = (playerCounts[pName] || 0) + 1;
+        // Jogadores
+        if (row.PLAYER && row.PLAYER.trim() !== '') {
+            killerPlayerCounts[row.PLAYER] = (killerPlayerCounts[row.PLAYER] || 0) + 1;
+        }
+        if (row.VITIMA && row.VITIMA.trim() !== '') {
+            victimPlayerCounts[row.VITIMA] = (victimPlayerCounts[row.VITIMA] || 0) + 1;
         }
 
         // Equipes (Sempre calculamos ambas para alimentar as listas laterais)
@@ -139,8 +142,8 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
         if (vTeam) victimTeamCounts[vTeam] = (victimTeamCounts[vTeam] || 0) + 1;
     });
 
-    return { weaponCounts, safeCounts, playerCounts, killerTeamCounts, victimTeamCounts };
-  }, [filteredFeed, tab, playerToTeamMap]);
+    return { weaponCounts, safeCounts, killerPlayerCounts, victimPlayerCounts, killerTeamCounts, victimTeamCounts };
+  }, [filteredFeed, playerToTeamMap]);
 
   const getWeaponImg = (name: string) => {
       if (!name) return undefined;
@@ -171,7 +174,8 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
 
   const weaponList = Object.entries(stats.weaponCounts).map(([name, count]) => ({name, count: count as number}));
   const safeList = Object.entries(stats.safeCounts).map(([name, count]) => ({name, count: count as number}));
-  const playerList = Object.entries(stats.playerCounts).map(([name, count]) => ({name, count: count as number}));
+  const killerPlayerList = Object.entries(stats.killerPlayerCounts).map(([name, count]) => ({name, count: count as number}));
+  const victimPlayerList = Object.entries(stats.victimPlayerCounts).map(([name, count]) => ({name, count: count as number}));
   const killerTeamList = Object.entries(stats.killerTeamCounts).map(([name, count]) => ({name, count: count as number}));
   const victimTeamList = Object.entries(stats.victimTeamCounts).map(([name, count]) => ({name, count: count as number}));
   const totalEvents = filteredFeed.length;
@@ -201,7 +205,7 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
         
         <FilterBar filters={filters} setFilters={setFilters} options={filterOptions} />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <StatGrid 
                 title={tab === 'kills' ? "Arsenal Fatal" : "Armas Eliminadoras"} 
                 items={weaponList} 
@@ -249,13 +253,25 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
             {/* LISTA 5: Clicável para filtrar a lateral */}
             <RenderList 
                 title={tab === 'kills' ? "Top Atiradores" : "Perfil de Baixas"} 
-                items={playerList} 
+                items={tab === 'kills' ? killerPlayerList : victimPlayerList} 
                 icon={<User size={16} className="text-yellow-500"/>} 
                 totalCount={totalEvents} 
                 getImage={(name: string) => getPlayerImg(name, tab === 'deaths')}
                 isPlayer
                 onSelect={(name: string) => handleToggleFilter('players', name)}
                 activeValues={filters.players}
+            />
+
+            {/* LISTA 6 (NOVA): Jogadores que mais morrem (na aba letais) ou que mais matam (na aba vítimas) */}
+            <RenderList 
+                title={tab === 'kills' ? "Jogadores que mais Morrem" : "Jogadores que mais Matam"} 
+                items={tab === 'kills' ? victimPlayerList : killerPlayerList} 
+                icon={<Skull size={16} className={tab === 'kills' ? "text-red-500" : "text-green-500"}/>} 
+                totalCount={totalEvents} 
+                getImage={(name: string) => getPlayerImg(name, tab === 'kills')}
+                isPlayer
+                isVictimList={tab === 'kills'}
+                /* onSelect omitido para manter não clicável ou opcional */
             />
         </div>
 
