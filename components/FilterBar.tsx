@@ -10,6 +10,7 @@ interface FilterState {
   rodada: string[];
   queda: string[];
   confrontation: string[];
+  grupo: string[];
 }
 
 interface FilterBarProps {
@@ -24,6 +25,7 @@ interface FilterBarProps {
     rounds: string[];
     quedas: string[];
     confrontations: string[];
+    grupos: string[];
   };
 }
 
@@ -39,7 +41,8 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, options }) =
       map: [],
       rodada: [],
       queda: [],
-      confrontation: []
+      confrontation: [],
+      grupo: []
     });
   };
 
@@ -56,6 +59,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ filters, setFilters, options }) =
       <div className={`${isOpen ? 'block' : 'hidden'} md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-6`}>
         <MultiSelect label="Jogadores" selected={filters.players} options={options.players} onChange={(v) => setFilters(p => ({...p, players: v}))} highlight />
         <MultiSelect label="Equipes" selected={filters.team} options={options.teams} onChange={(v) => setFilters(p => ({...p, team: v}))} />
+        <MultiSelect label="Grupo" selected={filters.grupo} options={options.grupos} onChange={(v) => setFilters(p => ({...p, grupo: v}))} />
         <MultiSelect label="Mapas" selected={filters.map} options={options.maps} onChange={(v) => setFilters(p => ({...p, map: v}))} />
         <MultiSelect label="Rodadas (RD)" selected={filters.rodada} options={options.rounds} onChange={(v) => setFilters(p => ({...p, rodada: v}))} />
         <MultiSelect label="Quedas (Q)" selected={filters.queda} options={options.quedas} onChange={(v) => setFilters(p => ({...p, queda: v}))} />

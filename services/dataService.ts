@@ -152,7 +152,11 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
 
     return {
       players, killFeed, details, characters,
-      teamsReference: parseCSV<TeamReference>(responses[4]),
+      teamsReference: parseCSV<any>(responses[4]).map(row => ({
+        TIME: getVal(row, ['TIME', 'Time', 'Equipe', 'EQUIPE']),
+        IMG: getVal(row, ['IMG', 'Img', 'Imagem', 'URL']),
+        GRUPO: getVal(row, ['GRUPO', 'Grupo', 'Group', 'GROUP', 'G'])
+      })),
       playersDimension: normalizeDim(parseCSV<any>(responses[5]), 'Player'),
       weapons: parseCSV<any>(responses[6]).map(r => ({ Arma: getVal(r, ['Arma', 'ARMA']), IMG: getVal(r, ['IMG', 'Img']) })),
       safes: parseCSV<any>(responses[7]).map(r => ({ Safe: getVal(r, ['Safe', 'SAFE']), IMG: getVal(r, ['IMG', 'Img']) })),
@@ -175,8 +179,12 @@ export const calculateTeamStats = (data: DashboardData): TeamStats[] => {
   const teamMap = new Map<string, TeamStats>();
   const lastMatchTracker = new Map<string, { rd: number, q: number, pos: number }>();
   const teamImages = new Map<string, string>();
+  const teamGroups = new Map<string, string>();
   
-  data.teamsReference.forEach(t => { if (t.TIME && t.IMG) teamImages.set(t.TIME, t.IMG); });
+  data.teamsReference.forEach(t => { 
+    if (t.TIME && t.IMG) teamImages.set(t.TIME, t.IMG); 
+    if (t.TIME && t.GRUPO) teamGroups.set(t.TIME, t.GRUPO);
+  });
 
   data.details.forEach(row => {
     const teamName = row.TIME;
@@ -186,6 +194,7 @@ export const calculateTeamStats = (data: DashboardData): TeamStats[] => {
       teamMap.set(teamName, { 
         name: teamName, 
         image: teamImages.get(teamName), 
+        grupo: teamGroups.get(teamName),
         s: 0, b: 0, ptsc: 0, abts: 0, pts: 0, 
         avgAbts: 0, avgPts: 0, avgPtsc: 0, 
         percentPos: 0, percentAbts: 0, 

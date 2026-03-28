@@ -23,7 +23,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
     map: [] as string[],
     rodada: [] as string[],
     queda: [] as string[],
-    confrontation: [] as string[]
+    confrontation: [] as string[],
+    grupo: [] as string[]
   });
 
   // Filtros baseados estritamente na fDetalhes (data.details)
@@ -36,7 +37,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
     rounds: Array.from(new Set(data.details.map(d => d.RD))).filter(Boolean).sort(),
     quedas: Array.from(new Set(data.details.map(d => d.Q))).filter(Boolean).sort(),
     confrontations: Array.from(new Set(data.details.map(d => d.CONFRONTO))).filter(Boolean).sort(),
-  }), [data.details]);
+    grupos: Array.from(new Set(data.teamsReference.map(t => t.GRUPO))).filter(Boolean).sort() as string[],
+  }), [data.details, data.teamsReference]);
 
   const normalize = (val: string | undefined) => (val || '').trim().toUpperCase();
 
@@ -57,7 +59,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
       });
 
       const filteredData = { ...data, details: filteredDetails };
-      setStats(calculateTeamStats(filteredData));
+      let calculatedStats = calculateTeamStats(filteredData);
+      
+      // Filtro de Grupo
+      if (filters.grupo.length > 0) {
+        calculatedStats = calculatedStats.filter(s => s.grupo && filters.grupo.some(g => normalize(g) === normalize(s.grupo)));
+      }
+      
+      setStats(calculatedStats);
     }
   }, [data, filters, phase]);
 

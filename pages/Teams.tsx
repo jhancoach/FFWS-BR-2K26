@@ -25,7 +25,8 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     map: [] as string[],
     rodada: [] as string[],
     queda: [] as string[],
-    confrontation: [] as string[]
+    confrontation: [] as string[],
+    grupo: [] as string[]
   });
 
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
@@ -49,7 +50,14 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
       if (filters.queda.length > 0 && !filters.queda.some(q => normalize(q) === normalize(d.Q))) return false;
       return true;
     });
-    return calculateTeamStats({ ...data, details: filteredDetails });
+    const stats = calculateTeamStats({ ...data, details: filteredDetails });
+    
+    // Filtro de Grupo
+    if (filters.grupo.length > 0) {
+      return stats.filter(s => s.grupo && filters.grupo.some(g => normalize(g) === normalize(s.grupo)));
+    }
+    
+    return stats;
   }, [data, filters]);
   
   const filterOptions = useMemo(() => ({
@@ -60,8 +68,9 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     maps: Array.from(new Set(data.players.map(p => p.MAPA))).filter(Boolean).sort(),
     rounds: Array.from(new Set(data.players.map(p => p.RD))).filter(Boolean).sort(),
     quedas: Array.from(new Set(data.players.map(p => p.Q))).filter(Boolean).sort(),
-    confrontations: []
-  }), [data.players]);
+    confrontations: [],
+    grupos: Array.from(new Set(data.teamsReference.map(t => t.GRUPO))).filter(Boolean).sort() as string[]
+  }), [data.players, data.teamsReference]);
 
   const selectedTeamName = filters.team.length === 1 ? filters.team[0] : null;
   const selectedTeamStats = selectedTeamName ? filteredTeamStats.find(t => t.name === selectedTeamName) : null;
@@ -599,7 +608,10 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <span className="block text-red-500 font-black text-xl leading-none italic">{player.kills}</span>
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-red-500 font-black text-xl leading-none italic">{player.kills}</span>
+                                                        <span className="text-[10px] text-blue-400 font-black italic mt-1">{percent}%</span>
+                                                    </div>
                                                     <span className="text-[9px] text-gray-600 font-black uppercase tracking-tighter">KILLS</span>
                                                 </div>
                                             </div>

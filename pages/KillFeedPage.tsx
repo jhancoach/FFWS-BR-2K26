@@ -19,7 +19,8 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
     map: [] as string[], 
     rodada: [] as string[], 
     queda: [] as string[],
-    confrontation: [] as string[]
+    confrontation: [] as string[],
+    grupo: [] as string[]
   });
 
   const normalize = (val: string | undefined) => (val || '').trim().toUpperCase();
@@ -42,7 +43,8 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
     rounds: Array.from(new Set(data.killFeed.map(k => k.RD))).filter(Boolean).sort(),
     confrontations: Array.from(new Set(data.killFeed.map(k => k.CONFRONTO))).filter(Boolean).sort(),
     quedas: Array.from(new Set(data.killFeed.map(k => k.Q))).filter(Boolean).sort(),
-  }), [data.killFeed, data.players]);
+    grupos: Array.from(new Set(data.teamsReference.map(t => t.GRUPO))).filter(Boolean).sort() as string[],
+  }), [data.killFeed, data.players, data.teamsReference]);
 
   const handleToggleFilter = (key: keyof typeof filters, value: string) => {
       setFilters(prev => {
@@ -53,6 +55,11 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
   };
 
   const filteredFeed = useMemo(() => {
+    const teamGroupMap = new Map<string, string>();
+    data.teamsReference.forEach(t => {
+        if (t.TIME && t.GRUPO) teamGroupMap.set(normalize(t.TIME), normalize(t.GRUPO));
+    });
+
     return data.killFeed.filter(k => {
       if (filters.map.length > 0 && !filters.map.some(m => normalize(m) === normalize(k.MAPA))) return false;
       
@@ -63,6 +70,20 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
       if (filters.confrontation.length > 0 && !filters.confrontation.includes(k.CONFRONTO)) return false;
       if (filters.weapon.length > 0 && !filters.weapon.includes(k.ARMA)) return false;
       if (filters.safe.length > 0 && !filters.safe.includes(k.SAFE)) return false;
+
+      // Filtro de Grupo
+      if (filters.grupo.length > 0) {
+          const kTeam = playerToTeamMap.get(normalize(k.PLAYER));
+          const vTeam = playerToTeamMap.get(normalize(k.VITIMA));
+          
+          if (tab === 'kills') {
+              const kGroup = kTeam ? teamGroupMap.get(normalize(kTeam)) : null;
+              if (!kGroup || !filters.grupo.some(g => normalize(g) === kGroup)) return false;
+          } else {
+              const vGroup = vTeam ? teamGroupMap.get(normalize(vTeam)) : null;
+              if (!vGroup || !filters.grupo.some(g => normalize(g) === vGroup)) return false;
+          }
+      }
 
       // Lógica de filtragem direcionada por Aba
       if (filters.team.length > 0) {

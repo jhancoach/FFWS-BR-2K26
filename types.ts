@@ -63,6 +63,7 @@ export interface CharacterData {
 export interface TeamReference {
   TIME: string;
   IMG?: string;
+  GRUPO?: string;
 }
 
 export interface WeaponData {
@@ -111,6 +112,7 @@ export interface DashboardData {
 export interface TeamStats {
   name: string;
   image?: string;
+  grupo?: string;
   s: number;
   b: number;
   ptsc: number;

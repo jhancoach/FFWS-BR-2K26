@@ -39,7 +39,8 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
     map: [] as string[],
     rodada: [] as string[],
     queda: [] as string[],
-    confrontation: [] as string[]
+    confrontation: [] as string[],
+    grupo: [] as string[]
   });
 
   useEffect(() => {
@@ -68,9 +69,10 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
     const rounds = Array.from(new Set([...data.players.map(p => p.RD), ...data.killFeed.map(k => k.RD)])).filter(Boolean).sort();
     const quedas = Array.from(new Set(baseDataForDrops.map(p => p.Q))).filter(Boolean).sort();
     const activeHabs = Array.from(new Set(data.characters.map(c => c.Hab1))).filter(Boolean).sort();
+    const grupos = Array.from(new Set(data.teamsReference.map(t => t.GRUPO))).filter(Boolean).sort() as string[];
 
-    return { teams, players, weapons: [], safes: [], maps, rounds, quedas, confrontations: [], activeHabs };
-  }, [data.players, data.killFeed, data.characters, data.playersDimension, filters.rodada]);
+    return { teams, players, weapons: [], safes: [], maps, rounds, quedas, confrontations: [], activeHabs, grupos };
+  }, [data.players, data.killFeed, data.characters, data.playersDimension, data.teamsReference, filters.rodada]);
 
   const charactersMap = useMemo(() => {
       const m = new Map<string, any>();
@@ -115,11 +117,22 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
   const rankingData = useMemo(() => {
     if (activeTab !== 'ranking' && activeTab !== 'auditoria' && activeTab !== 'stats' && activeTab !== 'roles' && activeTab !== 'compare') return [];
 
+    const teamGroupMap = new Map<string, string>();
+    data.teamsReference.forEach(t => {
+        if (t.TIME && t.GRUPO) teamGroupMap.set(normalize(t.TIME), normalize(t.GRUPO));
+    });
+
     const filtered = data.players.filter(p => {
         if (filters.team.length > 0 && !filters.team.includes(p.TIME)) return false;
         if (filters.players.length > 0 && !filters.players.some(fp => normalize(fp) === normalize(p.PLAYER))) return false;
         if (filters.map.length > 0 && !filters.map.some(m => normalize(m) === normalize(p.MAPA))) return false;
         
+        // Filtro de Grupo
+        if (filters.grupo.length > 0) {
+            const teamGroup = teamGroupMap.get(normalize(p.TIME));
+            if (!teamGroup || !filters.grupo.some(g => normalize(g) === teamGroup)) return false;
+        }
+
         // FILTRO ESTRITO: Se selecionar RD e Q, deve bater os dois simultaneamente no registro
         const matchRD = filters.rodada.length === 0 || filters.rodada.some(r => normalize(r) === normalize(p.RD));
         const matchQ = filters.queda.length === 0 || filters.queda.some(q => normalize(q) === normalize(p.Q));
@@ -206,6 +219,11 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
         sMap.set(safeVal, (sMap.get(safeVal) || 0) + 1);
     });
 
+    const teamKillsMap = new Map<string, number>();
+    statsMap.forEach(stat => {
+        teamKillsMap.set(stat.team, (teamKillsMap.get(stat.team) || 0) + stat.kills);
+    });
+
     return Array.from(statsMap.entries()).map(([name, stat]) => {
         const dim = data.playersDimension.find(d => normalize(d.Name) === normalize(name));
         
@@ -222,6 +240,9 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
         stat.mapStats.forEach((v, k) => {
             mapKills[k] = v.kills;
         });
+
+        const teamTotalKills = teamKillsMap.get(stat.team) || 0;
+        const killContributionPct = teamTotalKills > 0 ? ((stat.kills / teamTotalKills) * 100).toFixed(1) : '0.0';
 
         return {
             name, 
@@ -242,6 +263,8 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
             avg: stat.matches > 0 ? (stat.kills / stat.matches).toFixed(2) : '0.00',
             avgDmg: stat.matches > 0 ? (stat.damage / stat.matches).toFixed(0) : '0',
             avgKnocks: stat.matches > 0 ? (stat.knocks / stat.matches).toFixed(2) : '0.00',
+            killContributionPct,
+            teamTotalKills,
             safeKills,
             totalSafeKills,
             mapKills,
@@ -1002,6 +1025,12 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                                                 {rankingSort.field === 'kills' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
                                             </div>
                                         </th>
+                                        <th className="px-2 py-4 text-center text-blue-400 border-b border-gray-800 cursor-pointer hover:text-blue-300 transition-colors" onClick={() => handleRankingSort('killContributionPct')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                % C
+                                                {rankingSort.field === 'killContributionPct' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
                                         <th className="px-2 py-4 text-center text-yellow-500 border-b border-gray-800 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRankingSort('avg')}>
                                             <div className="flex items-center justify-center gap-1">
                                                 AVG K
@@ -1149,6 +1178,12 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                                         <>
                                             {/* Dados de Funções */}
                                             <td className="px-2 py-3 text-center text-red-400 font-black text-sm">{player.kills}</td>
+                                            <td className="px-2 py-3 text-center">
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[10px] font-black text-blue-400 italic">{player.killContributionPct}%</span>
+                                                    <span className="text-[7px] text-gray-600 font-bold uppercase">DO TIME</span>
+                                                </div>
+                                            </td>
                                             <td className="px-2 py-3 text-center text-yellow-500 font-black italic bg-yellow-500/5">{player.avg}</td>
                                             <td className="px-2 py-3 text-center text-gray-300 font-mono">{player.damage}</td>
                                             <td className="px-2 py-3 text-center text-yellow-500 font-black italic bg-yellow-500/5">{player.avgDmg}</td>
@@ -1462,6 +1497,16 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
         const team = records[0]?.TIME || data.players.find(p => normalize(p.PLAYER) === normalize(playerName))?.TIME || 'N/A';
         const teamImg = data.teamsReference.find(t => normalize(t.TIME) === normalize(team))?.IMG;
 
+        const teamRecords = data.players.filter((p: PlayerData) => {
+            if (normalize(p.TIME) !== normalize(team)) return false;
+            if (filters.rodada.length > 0 && !filters.rodada.some(r => normalize(r) === normalize(p.RD))) return false;
+            if (filters.map.length > 0 && !filters.map.some(m => normalize(m) === normalize(p.MAPA))) return false;
+            if (filters.queda.length > 0 && !filters.queda.some(q => normalize(q) === normalize(p.Q))) return false;
+            return true;
+        });
+        const teamTotalKills = teamRecords.reduce((acc: number, r: PlayerData) => acc + parseNumber(r.Abates), 0);
+        const killContributionPct = teamTotalKills > 0 ? ((totalKills / teamTotalKills) * 100).toFixed(1) : '0.0';
+
         const findDimImg = (dims: any[], name: string) => {
             if (!name) return undefined;
             const target = cleanKey(name);
@@ -1496,6 +1541,8 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
             matches: totalMatches, 
             avg: totalMatches > 0 ? (totalKills / totalMatches).toFixed(2) : '0.00', 
             avgDmg: totalMatches > 0 ? (totalDamage / totalMatches).toFixed(0) : '0',
+            killContributionPct,
+            teamTotalKills,
             loadout: currentLoadout, 
             safeKills, 
             mapKills, 
@@ -1549,7 +1596,7 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div className="bg-[#1a1a1a] p-4 rounded-2xl border border-gray-800 flex flex-col items-center">
                     <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Dano Médio</span>
                     <span className="text-xl font-black text-white italic">{stats.avgDmg}</span>
@@ -1565,6 +1612,10 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
                     <span className="text-xl font-black text-orange-500 italic">
                         {stats.kills > 0 ? (stats.knocks / stats.kills).toFixed(2) : '0.00'}
                     </span>
+                </div>
+                <div className="bg-[#1a1a1a] p-4 rounded-2xl border border-gray-800 flex flex-col items-center">
+                    <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">% Contribuição</span>
+                    <span className="text-xl font-black text-blue-400 italic">{stats.killContributionPct}%</span>
                 </div>
                 <div className="bg-[#1a1a1a] p-4 rounded-2xl border border-gray-800 flex flex-col items-center">
                     <span className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1">Participação</span>
