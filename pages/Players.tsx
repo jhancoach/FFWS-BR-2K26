@@ -336,6 +336,7 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
             img: d.IMG,
             team: stats?.team || 'N/A',
             kills: stats?.kills || 0,
+            diff: stats?.diff || 0,
             avg: stats?.avg || '0.00',
             damage: stats?.damage || 0,
             avgDmg: stats?.avgDmg || '0',
@@ -586,6 +587,12 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                                                       {roleSort.field === 'kills' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
                                                   </div>
                                               </th>
+                                              <th className="px-1 py-2 text-center cursor-pointer hover:text-white transition-colors" onClick={() => handleRoleSort('diff')}>
+                                                  <div className="flex items-center justify-center gap-1">
+                                                      S
+                                                      {roleSort.field === 'diff' && (roleSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                                  </div>
+                                              </th>
                                               <th className="px-1 py-2 text-center text-yellow-500 cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => handleRoleSort('avg')}>
                                                   <div className="flex items-center justify-center gap-1">
                                                       AVG K
@@ -686,6 +693,9 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                                                           </div>
                                                       </td>
                                                       <td className="px-1 py-2 text-center text-[10px] font-black text-red-500 italic">{p.kills}</td>
+                                                      <td className={`px-1 py-2 text-center text-[10px] font-black italic ${p.diff > 0 ? 'text-green-500' : p.diff < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                                                          {p.diff > 0 ? `+${p.diff}` : p.diff}
+                                                      </td>
                                                       <td className="px-1 py-2 text-center text-[9px] font-black text-yellow-500 italic bg-yellow-500/5">{p.avg}</td>
                                                       <td className="px-1 py-2 text-center text-[9px] font-mono text-gray-400">{p.damage}</td>
                                                       <td className="px-1 py-2 text-center text-[9px] font-black text-yellow-500 italic bg-yellow-500/5">{p.avgDmg}</td>
