@@ -248,6 +248,7 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
             name, 
             team: stat.team, 
             kills: stat.kills, 
+            diff: stat.kills - stat.matches,
             damage: stat.damage,
             hs: stat.hs,
             knocks: stat.knocks,
@@ -1025,6 +1026,12 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                                                 {rankingSort.field === 'kills' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
                                             </div>
                                         </th>
+                                        <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('diff')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                S
+                                                {rankingSort.field === 'diff' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
                                         <th className="px-2 py-4 text-center text-blue-400 border-b border-gray-800 cursor-pointer hover:text-blue-300 transition-colors" onClick={() => handleRankingSort('killContributionPct')}>
                                             <div className="flex items-center justify-center gap-1">
                                                 % C
@@ -1178,6 +1185,9 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                                         <>
                                             {/* Dados de Funções */}
                                             <td className="px-2 py-3 text-center text-red-400 font-black text-sm">{player.kills}</td>
+                                            <td className={`px-2 py-3 text-center font-black text-sm ${player.diff > 0 ? 'text-green-500' : player.diff < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                                                {player.diff > 0 ? `+${player.diff}` : player.diff}
+                                            </td>
                                             <td className="px-2 py-3 text-center">
                                                 <div className="flex flex-col items-center">
                                                     <span className="text-[10px] font-black text-blue-400 italic">{player.killContributionPct}%</span>
@@ -1528,6 +1538,8 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
         const funcao = playerDim?.Funcao || 'N/A';
         const funcao2 = playerDim?.Funcao2 || 'N/A';
 
+        const diff = totalKills - totalMatches;
+
         return { 
             team, 
             teamImg, 
@@ -1539,6 +1551,7 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
             knocks: totalKnocks,
             assists: totalAssists,
             matches: totalMatches, 
+            diff,
             avg: totalMatches > 0 ? (totalKills / totalMatches).toFixed(2) : '0.00', 
             avgDmg: totalMatches > 0 ? (totalDamage / totalMatches).toFixed(0) : '0',
             killContributionPct,
@@ -1588,6 +1601,11 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
                 <div className="flex flex-wrap justify-center gap-4 relative z-10">
                     <MetricCard label="Abates" value={stats.kills} color="text-red-500" />
                     <MetricCard label="Salas" value={stats.matches} color="text-blue-400" />
+                    <MetricCard 
+                        label="Saldo" 
+                        value={stats.diff > 0 ? `+${stats.diff}` : stats.diff} 
+                        color={stats.diff > 0 ? "text-green-500" : stats.diff < 0 ? "text-red-600" : "text-gray-400"} 
+                    />
                     <MetricCard label="Dano" value={stats.damage} color="text-gray-300" />
                     <MetricCard label="HS" value={stats.hs} color="text-yellow-500" />
                     <MetricCard label="Deitados" value={stats.knocks} color="text-orange-500" />
