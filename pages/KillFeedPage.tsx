@@ -1,15 +1,19 @@
 
 import React, { useState, useMemo } from 'react';
 import { DashboardData } from '../types';
-import { Crosshair, ShieldAlert, Swords, Disc, List, User, FilterX, Shield, History, Clock, MapPin, Target, Skull } from 'lucide-react';
+import { Crosshair, ShieldAlert, Swords, Disc, List, User, FilterX, Shield, History, Clock, MapPin, Target, Skull, BarChart3, TrendingUp } from 'lucide-react';
 import FilterBar from '../components/FilterBar';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 interface KillFeedPageProps {
   data: DashboardData;
 }
 
 const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
-  const [tab, setTab] = useState<'kills' | 'deaths'>('kills');
+  const [tab, setTab] = useState<'kills' | 'deaths' | 'comparativo'>('kills');
+  const [compareType, setCompareType] = useState<'RD' | 'CONFRONTO'>('RD');
+  const [compareItem1, setCompareItem1] = useState<string>('');
+  const [compareItem2, setCompareItem2] = useState<string>('');
   
   const [filters, setFilters] = useState({
     team: [] as string[], 
@@ -145,6 +149,110 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
     return { weaponCounts, safeCounts, killerPlayerCounts, victimPlayerCounts, killerTeamCounts, victimTeamCounts };
   }, [filteredFeed, playerToTeamMap]);
 
+  const comparativeData = useMemo(() => {
+    if (tab !== 'comparativo') return null;
+
+    const killsBySafe: Record<string, number> = {};
+    const killsByTeam: Record<string, number> = {};
+    const deathsByTeam: Record<string, number> = {};
+    const killsByRound: Record<string, number> = {};
+    const killsByMap: Record<string, number> = {};
+
+    filteredFeed.forEach(row => {
+        // Kills by Safe
+        if (row.SAFE) {
+            killsBySafe[row.SAFE] = (killsBySafe[row.SAFE] || 0) + 1;
+        }
+        
+        // Kills by Round
+        if (row.RD) {
+            killsByRound[row.RD] = (killsByRound[row.RD] || 0) + 1;
+        }
+
+        // Kills by Map
+        if (row.MAPA) {
+            killsByMap[row.MAPA] = (killsByMap[row.MAPA] || 0) + 1;
+        }
+
+        // Kills by Team
+        const kTeam = playerToTeamMap.get(normalize(row.PLAYER));
+        if (kTeam) killsByTeam[kTeam] = (killsByTeam[kTeam] || 0) + 1;
+
+        // Deaths by Team
+        const vTeam = playerToTeamMap.get(normalize(row.VITIMA));
+        if (vTeam) deathsByTeam[vTeam] = (deathsByTeam[vTeam] || 0) + 1;
+    });
+
+    const safeChart = Object.entries(killsBySafe)
+        .map(([name, count]) => ({ name: `Safe ${name}`, count }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    const teamKillsChart = Object.entries(killsByTeam)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+    const teamDeathsChart = Object.entries(deathsByTeam)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+    const roundChart = Object.entries(killsByRound)
+        .map(([name, count]) => ({ name: `Rd ${name}`, count }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    const mapChart = Object.entries(killsByMap)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count);
+
+    // Comparison Logic
+    let comp1: any = null;
+    let comp2: any = null;
+    
+    if (compareItem1 && compareItem2) {
+        const stats1: any = { kills: {}, deaths: {}, safes: {}, maps: {} };
+        const stats2: any = { kills: {}, deaths: {}, safes: {}, maps: {} };
+        
+        data.killFeed.forEach(k => {
+            const val = compareType === 'RD' ? k.RD : k.CONFRONTO;
+            const kTeam = playerToTeamMap.get(normalize(k.PLAYER));
+            const vTeam = playerToTeamMap.get(normalize(k.VITIMA));
+
+            if (normalize(val) === normalize(compareItem1)) {
+                if (kTeam) stats1.kills[kTeam] = (stats1.kills[kTeam] || 0) + 1;
+                if (vTeam) stats1.deaths[vTeam] = (stats1.deaths[vTeam] || 0) + 1;
+                if (k.SAFE) stats1.safes[k.SAFE] = (stats1.safes[k.SAFE] || 0) + 1;
+                if (k.MAPA) stats1.maps[k.MAPA] = (stats1.maps[k.MAPA] || 0) + 1;
+            } else if (normalize(val) === normalize(compareItem2)) {
+                if (kTeam) stats2.kills[kTeam] = (stats2.kills[kTeam] || 0) + 1;
+                if (vTeam) stats2.deaths[vTeam] = (stats2.deaths[vTeam] || 0) + 1;
+                if (k.SAFE) stats2.safes[k.SAFE] = (stats2.safes[k.SAFE] || 0) + 1;
+                if (k.MAPA) stats2.maps[k.MAPA] = (stats2.maps[k.MAPA] || 0) + 1;
+            }
+        });
+
+        comp1 = {
+            killsByTeam: Object.entries(stats1.kills).map(([name, count]) => ({ name, count })).sort((a: any, b: any) => b.count - a.count).slice(0, 10),
+            deathsByTeam: Object.entries(stats1.deaths).map(([name, count]) => ({ name, count })).sort((a: any, b: any) => b.count - a.count).slice(0, 10),
+            killsBySafe: Object.entries(stats1.safes).map(([name, count]) => ({ name: `Safe ${name}`, count })).sort((a: any, b: any) => a.name.localeCompare(b.name)),
+            killsByMap: Object.entries(stats1.maps).map(([name, count]) => ({ name, count })).sort((a: any, b: any) => b.count - a.count),
+            totalKills: Object.values(stats1.kills).reduce((acc: any, curr: any) => acc + curr, 0) as number,
+            totalDeaths: Object.values(stats1.deaths).reduce((acc: any, curr: any) => acc + curr, 0) as number
+        };
+
+        comp2 = {
+            killsByTeam: Object.entries(stats2.kills).map(([name, count]) => ({ name, count })).sort((a: any, b: any) => b.count - a.count).slice(0, 10),
+            deathsByTeam: Object.entries(stats2.deaths).map(([name, count]) => ({ name, count })).sort((a: any, b: any) => b.count - a.count).slice(0, 10),
+            killsBySafe: Object.entries(stats2.safes).map(([name, count]) => ({ name: `Safe ${name}`, count })).sort((a: any, b: any) => a.name.localeCompare(b.name)),
+            killsByMap: Object.entries(stats2.maps).map(([name, count]) => ({ name, count })).sort((a: any, b: any) => b.count - a.count),
+            totalKills: Object.values(stats2.kills).reduce((acc: any, curr: any) => acc + curr, 0) as number,
+            totalDeaths: Object.values(stats2.deaths).reduce((acc: any, curr: any) => acc + curr, 0) as number
+        };
+    }
+
+    return { safeChart, teamKillsChart, teamDeathsChart, roundChart, mapChart, comp1, comp2 };
+  }, [filteredFeed, playerToTeamMap, tab, compareType, compareItem1, compareItem2, data.killFeed]);
+
   const getWeaponImg = (name: string) => {
       if (!name) return undefined;
       const w = data.weapons.find(w => w.Arma.trim().toLowerCase() === name.trim().toLowerCase());
@@ -153,7 +261,8 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
 
   const getSafeImg = (name: string) => {
       if (!name) return undefined;
-      const s = data.safes.find(s => s.Safe.trim().toLowerCase() === name.trim().toLowerCase());
+      const cleanName = name.replace(/^Safe\s+/i, '').trim().toLowerCase();
+      const s = data.safes.find(s => s.Safe.trim().toLowerCase() === cleanName);
       return s?.IMG;
   };
 
@@ -200,12 +309,228 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
                 >
                     <ShieldAlert size={14} /> VÍTIMAS
                 </button>
+                <button 
+                    onClick={() => { setTab('comparativo'); setFilters(prev => ({...prev, players: [], team: []})); }}
+                    className={`px-6 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 uppercase tracking-widest ${tab === 'comparativo' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-gray-500 hover:text-white hover:bg-gray-900'}`}
+                >
+                    <BarChart3 size={14} /> COMPARATIVO
+                </button>
             </div>
         </div>
         
         <FilterBar filters={filters} setFilters={setFilters} options={filterOptions} />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {tab === 'comparativo' ? (
+            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                {/* Seletor de Comparação */}
+                <div className="bg-[#1a1a1a] rounded-2xl border border-yellow-500/30 p-6 shadow-2xl bg-gradient-to-br from-[#1a1a1a] to-black">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex flex-col gap-1">
+                            <h3 className="text-lg font-black text-white uppercase italic tracking-tighter flex items-center gap-3">
+                                <Swords className="text-yellow-500" size={24} />
+                                Comparador de Performance
+                            </h3>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Compare métricas entre rodadas ou confrontos</p>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex bg-black rounded-lg border border-gray-800 p-1">
+                                <button 
+                                    onClick={() => { setCompareType('RD'); setCompareItem1(''); setCompareItem2(''); }}
+                                    className={`px-4 py-1.5 rounded-md text-[10px] font-black transition-all uppercase ${compareType === 'RD' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                                >
+                                    Rodada
+                                </button>
+                                <button 
+                                    onClick={() => { setCompareType('CONFRONTO'); setCompareItem1(''); setCompareItem2(''); }}
+                                    className={`px-4 py-1.5 rounded-md text-[10px] font-black transition-all uppercase ${compareType === 'CONFRONTO' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                                >
+                                    Confronto
+                                </button>
+                            </div>
+
+                            <select 
+                                value={compareItem1}
+                                onChange={(e) => setCompareItem1(e.target.value)}
+                                className="bg-black border border-gray-800 text-white text-[11px] font-bold px-4 py-2 rounded-lg focus:border-yellow-500 outline-none min-w-[140px] uppercase"
+                            >
+                                <option value="">Selecionar 1</option>
+                                {(compareType === 'RD' ? filterOptions.rounds : filterOptions.confrontations).map(opt => (
+                                    <option key={opt} value={opt}>{compareType === 'RD' ? `Rodada ${opt}` : opt}</option>
+                                ))}
+                            </select>
+
+                            <div className="text-yellow-500 font-black italic text-sm px-2">VS</div>
+
+                            <select 
+                                value={compareItem2}
+                                onChange={(e) => setCompareItem2(e.target.value)}
+                                className="bg-black border border-gray-800 text-white text-[11px] font-bold px-4 py-2 rounded-lg focus:border-yellow-500 outline-none min-w-[140px] uppercase"
+                            >
+                                <option value="">Selecionar 2</option>
+                                {(compareType === 'RD' ? filterOptions.rounds : filterOptions.confrontations).map(opt => (
+                                    <option key={opt} value={opt}>{compareType === 'RD' ? `Rodada ${opt}` : opt}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {compareItem1 && compareItem2 && comparativeData?.comp1 && comparativeData?.comp2 ? (
+                    <div className="space-y-12">
+                        {/* Times com Mais Abates */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-4">
+                                <div className="h-px flex-1 bg-gradient-to-r from-transparent to-yellow-500/30"></div>
+                                <h4 className="text-yellow-500 font-black uppercase italic tracking-widest text-xs flex items-center gap-2">
+                                    <Target size={14} /> Times com Mais Abates
+                                </h4>
+                                <div className="h-px flex-1 bg-gradient-to-l from-transparent to-yellow-500/30"></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <RenderList 
+                                    title={`${compareType} ${compareItem1}`} 
+                                    items={comparativeData.comp1.killsByTeam} 
+                                    icon={<Shield size={16} className="text-yellow-500"/>} 
+                                    totalCount={comparativeData.comp1.totalKills} 
+                                    getImage={getTeamImg}
+                                    isTeam
+                                />
+                                <RenderList 
+                                    title={`${compareType} ${compareItem2}`} 
+                                    items={comparativeData.comp2.killsByTeam} 
+                                    icon={<Shield size={16} className="text-blue-500"/>} 
+                                    totalCount={comparativeData.comp2.totalKills} 
+                                    getImage={getTeamImg}
+                                    isTeam
+                                />
+                            </div>
+                        </div>
+
+                        {/* Times que Mais Morrem */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-4">
+                                <div className="h-px flex-1 bg-gradient-to-r from-transparent to-red-500/30"></div>
+                                <h4 className="text-red-500 font-black uppercase italic tracking-widest text-xs flex items-center gap-2">
+                                    <Skull size={14} /> Times que Mais Morrem
+                                </h4>
+                                <div className="h-px flex-1 bg-gradient-to-l from-transparent to-red-500/30"></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <RenderList 
+                                    title={`${compareType} ${compareItem1}`} 
+                                    items={comparativeData.comp1.deathsByTeam} 
+                                    icon={<Skull size={16} className="text-red-500"/>} 
+                                    totalCount={comparativeData.comp1.totalDeaths} 
+                                    getImage={getTeamImg}
+                                    isTeam
+                                    isVictimList
+                                />
+                                <RenderList 
+                                    title={`${compareType} ${compareItem2}`} 
+                                    items={comparativeData.comp2.deathsByTeam} 
+                                    icon={<Skull size={16} className="text-red-500"/>} 
+                                    totalCount={comparativeData.comp2.totalDeaths} 
+                                    getImage={getTeamImg}
+                                    isTeam
+                                    isVictimList
+                                />
+                            </div>
+                        </div>
+
+                        {/* Abates por Safe */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-4">
+                                <div className="h-px flex-1 bg-gradient-to-r from-transparent to-blue-500/30"></div>
+                                <h4 className="text-blue-500 font-black uppercase italic tracking-widest text-xs flex items-center gap-2">
+                                    <Disc size={14} /> Abates por Safe Zone
+                                </h4>
+                                <div className="h-px flex-1 bg-gradient-to-l from-transparent to-blue-500/30"></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <RenderList 
+                                    title={`${compareType} ${compareItem1}`} 
+                                    items={comparativeData.comp1.killsBySafe} 
+                                    icon={<Disc size={16} className="text-blue-500"/>} 
+                                    totalCount={comparativeData.comp1.totalKills} 
+                                    getImage={getSafeImg}
+                                />
+                                <RenderList 
+                                    title={`${compareType} ${compareItem2}`} 
+                                    items={comparativeData.comp2.killsBySafe} 
+                                    icon={<Disc size={16} className="text-blue-500"/>} 
+                                    totalCount={comparativeData.comp2.totalKills} 
+                                    getImage={getSafeImg}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Abates por Mapa */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-4">
+                                <div className="h-px flex-1 bg-gradient-to-r from-transparent to-green-500/30"></div>
+                                <h4 className="text-green-500 font-black uppercase italic tracking-widest text-xs flex items-center gap-2">
+                                    <MapPin size={14} /> Abates por Mapa
+                                </h4>
+                                <div className="h-px flex-1 bg-gradient-to-l from-transparent to-green-500/30"></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <RenderList 
+                                    title={`${compareType} ${compareItem1}`} 
+                                    items={comparativeData.comp1.killsByMap} 
+                                    icon={<MapPin size={16} className="text-green-500"/>} 
+                                    totalCount={comparativeData.comp1.totalKills} 
+                                />
+                                <RenderList 
+                                    title={`${compareType} ${compareItem2}`} 
+                                    items={comparativeData.comp2.killsByMap} 
+                                    icon={<MapPin size={16} className="text-green-500"/>} 
+                                    totalCount={comparativeData.comp2.totalKills} 
+                                />
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <RenderList 
+                            title="Abates por Safe Zone" 
+                            items={comparativeData?.safeChart || []} 
+                            icon={<Disc size={16} className="text-blue-500"/>} 
+                            totalCount={totalEvents} 
+                            getImage={getSafeImg}
+                        />
+
+                        <RenderList 
+                            title="Abates por Mapa" 
+                            items={comparativeData?.mapChart || []} 
+                            icon={<MapPin size={16} className="text-green-500"/>} 
+                            totalCount={totalEvents} 
+                        />
+
+                        <RenderList 
+                            title="Top 10 Times com Mais Abates" 
+                            items={comparativeData?.teamKillsChart || []} 
+                            icon={<Target size={16} className="text-yellow-500"/>} 
+                            totalCount={totalEvents} 
+                            getImage={getTeamImg}
+                            isTeam
+                        />
+
+                        <RenderList 
+                            title="Top 10 Times que Mais Morrem" 
+                            items={comparativeData?.teamDeathsChart || []} 
+                            icon={<Skull size={16} className="text-red-500"/>} 
+                            totalCount={totalEvents} 
+                            getImage={getTeamImg}
+                            isTeam
+                            isVictimList
+                        />
+                    </div>
+                )}
+            </div>
+        ) : (
+            <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <StatGrid 
                 title={tab === 'kills' ? "Arsenal Fatal" : "Armas Eliminadoras"} 
                 items={weaponList} 
@@ -274,6 +599,8 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
                 /* onSelect omitido para manter não clicável ou opcional */
             />
         </div>
+        </>
+        )}
 
         <div className="bg-[#1a1a1a] rounded-2xl border border-gray-800 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="bg-black/60 p-6 border-b border-gray-800 flex items-center justify-between">
