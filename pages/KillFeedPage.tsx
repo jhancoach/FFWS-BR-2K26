@@ -71,7 +71,7 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
       const matchQ = filters.queda.length === 0 || filters.queda.some(q => normalize(q) === normalize(k.Q));
       if (!(matchRD && matchQ)) return false;
 
-      if (filters.confrontation.length > 0 && !filters.confrontation.includes(k.CONFRONTO)) return false;
+      if (filters.confrontation.length > 0 && !filters.confrontation.some(c => normalize(c) === normalize(k.CONFRONTO))) return false;
       if (filters.weapon.length > 0 && !filters.weapon.includes(k.ARMA)) return false;
       if (filters.safe.length > 0 && !filters.safe.includes(k.SAFE)) return false;
 

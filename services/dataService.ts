@@ -87,24 +87,34 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
     const responses = await Promise.all(urls.map(url => safeFetch(url)));
     
     // Parse players (Fonte Fato: fPlayersDados)
-    const players: PlayerData[] = parseCSV<any>(responses[0]).map(row => ({
-        PLAYER: getVal(row, ['PLAYER', 'Player', 'Jogador', 'JOGADOR', 'NOME', 'COMPETIDOR']),
-        TIME: getVal(row, ['TIME', 'Time', 'Equipe', 'EQUIPE', 'TAG']),
-        S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDAS']),
-        Abates: getVal(row, ['ABATES', 'Abates', 'Kills', 'KILLS', 'ABTS', 'KILL']) || '0',
-        Dano: getVal(row, ['DANO', 'Damage', 'DMG']),
-        HS: getVal(row, ['HS', 'Headshot', 'HEADSHOTS', 'CAPA']),
-        Deitados: getVal(row, ['DEITADOS', 'Knockdowns', 'KNOCKS', 'DEITOU']),
-        Assistencias: getVal(row, ['ASSISTENCIAS', 'Assists', 'ASSIST']),
-        Gelos: getVal(row, ['GELOS', 'Walls', 'GELO']),
-        GelosDestruidos: getVal(row, ['GELOS DESTRUIDOS', 'Walls Destroyed', 'GELO DESTRUIDO']),
-        Reviveu: getVal(row, ['REVIVEU', 'Revived']),
-        AliadosRevividos: getVal(row, ['ALIADOS REVIVIDOS', 'Allies Revived']),
-        MVP: getVal(row, ['MVP', 'Mvp', 'M.V.P']),
-        MAPA: getVal(row, ['MAPA', 'Mapa', 'Map']),
-        RD: getVal(row, ['RD', 'Rd', 'Rodada', 'Round']),
-        Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
-    })).filter(p => p.PLAYER);
+    const players: PlayerData[] = parseCSV<any>(responses[0]).map(row => {
+        const player = getVal(row, ['PLAYER', 'Player', 'Jogador', 'JOGADOR', 'NOME', 'COMPETIDOR']);
+        let time = getVal(row, ['TIME', 'Time', 'Equipe', 'EQUIPE', 'TAG']);
+        
+        // Patch: VITNXP is in TS, not E1
+        if (player.toUpperCase() === 'VITNXP') {
+            time = 'TS';
+        }
+
+        return {
+            PLAYER: player,
+            TIME: time,
+            S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDAS']),
+            Abates: getVal(row, ['ABATES', 'Abates', 'Kills', 'KILLS', 'ABTS', 'KILL']) || '0',
+            Dano: getVal(row, ['DANO', 'Damage', 'DMG']),
+            HS: getVal(row, ['HS', 'Headshot', 'HEADSHOTS', 'CAPA']),
+            Deitados: getVal(row, ['DEITADOS', 'Knockdowns', 'KNOCKS', 'DEITOU']),
+            Assistencias: getVal(row, ['ASSISTENCIAS', 'Assists', 'ASSIST']),
+            Gelos: getVal(row, ['GELOS', 'Walls', 'GELO']),
+            GelosDestruidos: getVal(row, ['GELOS DESTRUIDOS', 'Walls Destroyed', 'GELO DESTRUIDO']),
+            Reviveu: getVal(row, ['REVIVEU', 'Revived']),
+            AliadosRevividos: getVal(row, ['ALIADOS REVIVIDOS', 'Allies Revived']),
+            MVP: getVal(row, ['MVP', 'Mvp', 'M.V.P']),
+            MAPA: getVal(row, ['MAPA', 'Mapa', 'Map']),
+            RD: getVal(row, ['RD', 'Rd', 'Rodada', 'Round']),
+            Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
+        };
+    }).filter(p => p.PLAYER);
 
     // Parse KillFeed (Fonte Fato)
     const killFeed: KillFeed[] = parseCSV<any>(responses[1]).map(row => ({
@@ -134,21 +144,31 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
     })).filter(d => d.TIME);
     
     // Parse Loadouts (Fonte Fato)
-    const characters: CharacterData[] = parseCSV<any>(responses[3]).map(row => ({
-        Player: getVal(row, ['Player', 'Jogador', 'PLAYER', 'NOME']),
-        Time: getVal(row, ['Time', 'Equipe', 'TIME']),
-        Hab1: getVal(row, ['Hab1', 'Hab 1', 'Ativa']),
-        Hab2: getVal(row, ['Hab2', 'Hab 2', 'Passiva 1']),
-        Hab3: getVal(row, ['Hab3', 'Hab 3', 'Passiva 2']),
-        Hab4: getVal(row, ['Hab4', 'Hab 4', 'Passiva 3']),
-        Pet: getVal(row, ['Pet', 'PET']),
-        Item: getVal(row, ['Item', 'ITEM']),
-        Rd: getVal(row, ['Rd', 'RD', 'Rodada']),
-        Confronto: getVal(row, ['Confronto', 'CONFRONTO']),
-        Mapa: getVal(row, ['Mapa', 'MAPA']),
-        S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDA']),
-        Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
-    })).filter(c => c.Player);
+    const characters: CharacterData[] = parseCSV<any>(responses[3]).map(row => {
+        const player = getVal(row, ['Player', 'Jogador', 'PLAYER', 'NOME']);
+        let time = getVal(row, ['Time', 'Equipe', 'TIME']);
+
+        // Patch: VITNXP is in TS, not E1
+        if (player.toUpperCase() === 'VITNXP') {
+            time = 'TS';
+        }
+
+        return {
+            Player: player,
+            Time: time,
+            Hab1: getVal(row, ['Hab1', 'Hab 1', 'Ativa']),
+            Hab2: getVal(row, ['Hab2', 'Hab 2', 'Passiva 1']),
+            Hab3: getVal(row, ['Hab3', 'Hab 3', 'Passiva 2']),
+            Hab4: getVal(row, ['Hab4', 'Hab 4', 'Passiva 3']),
+            Pet: getVal(row, ['Pet', 'PET']),
+            Item: getVal(row, ['Item', 'ITEM']),
+            Rd: getVal(row, ['Rd', 'RD', 'Rodada']),
+            Confronto: getVal(row, ['Confronto', 'CONFRONTO']),
+            Mapa: getVal(row, ['Mapa', 'MAPA']),
+            S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDA']),
+            Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
+        };
+    }).filter(c => c.Player);
 
     return {
       players, killFeed, details, characters,

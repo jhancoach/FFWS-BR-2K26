@@ -3,7 +3,7 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardData, TeamStats } from '../types';
 import { calculateTeamStats } from '../services/dataService';
-import { Trophy, Crosshair, Crown, Layers, Star, ChevronRight, Shield, CheckCircle2, TrendingUp, Medal } from 'lucide-react';
+import { Trophy, Crosshair, Crown, Layers, Star, ChevronRight, Shield, CheckCircle2, TrendingUp, Medal, Settings2, ArrowUpDown, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
 import FilterBar from '../components/FilterBar';
 
 interface LeaderboardProps {
@@ -13,7 +13,26 @@ interface LeaderboardProps {
 const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<TeamStats[]>([]);
+  const [generalTop12, setGeneralTop12] = useState<Set<string>>(new Set());
   const [phase, setPhase] = useState<'ALL' | 'QUALIFIERS' | 'FINALS'>('ALL');
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+  
+  const [sortConfig, setSortConfig] = useState<{ key: keyof TeamStats; direction: 'asc' | 'desc' }>({
+    key: 'pts',
+    direction: 'desc'
+  });
+
+  const [visibleColumns, setVisibleColumns] = useState({
+    rank: true,
+    team: true,
+    pts: true,
+    ptsc: true,
+    avgPts: true,
+    abts: true,
+    avgAbts: true,
+    b: true,
+    s: true
+  });
   
   const [filters, setFilters] = useState({
     team: [] as string[],
@@ -44,12 +63,17 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
 
   useEffect(() => {
     if (!data.loading) {
+      // 1. Calcular Top 12 Geral (sem filtros de rodada/mapa) para a tag FINALISTA
+      const generalStats = calculateTeamStats(data);
+      setGeneralTop12(new Set(generalStats.slice(0, 12).map(s => s.name)));
+
+      // 2. Calcular estatísticas filtradas para a exibição
       const filteredDetails = data.details.filter(d => {
         if (filters.team.length > 0 && !filters.team.includes(d.TIME)) return false;
         if (filters.map.length > 0 && !filters.map.some(m => normalize(m) === normalize(d.MAPA))) return false;
         if (filters.rodada.length > 0 && !filters.rodada.some(r => normalize(r) === normalize(d.RD))) return false;
         if (filters.queda.length > 0 && !filters.queda.some(q => normalize(q) === normalize(d.Q))) return false;
-        if (filters.confrontation.length > 0 && !filters.confrontation.includes(d.CONFRONTO)) return false;
+        if (filters.confrontation.length > 0 && !filters.confrontation.some(c => normalize(c) === normalize(d.CONFRONTO))) return false;
 
         const roundNum = parseInt(d.RD.replace(/\D/g, '')) || 0;
         if (phase === 'QUALIFIERS' && (roundNum < 1 || roundNum > 20)) return false;
@@ -74,8 +98,50 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
       navigate('/teams', { state: { team: teamName } });
   };
 
-  const leftStats = useMemo(() => stats.slice(0, 12), [stats]);
-  const rightStats = useMemo(() => stats.slice(12, 24), [stats]);
+  const sortedStats = useMemo(() => {
+    const sortableItems = [...stats];
+    sortableItems.sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+
+      if (aVal === undefined || bVal === undefined) return 0;
+
+      if (aVal < bVal) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aVal > bVal) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+    return sortableItems;
+  }, [stats, sortConfig]);
+
+  const isSingleColumn = useMemo(() => sortedStats.length <= 12, [sortedStats]);
+  
+  const { leftStats, rightStats } = useMemo(() => {
+    if (isSingleColumn) {
+      return { leftStats: sortedStats, rightStats: [] as TeamStats[] };
+    } else {
+      const half = Math.ceil(sortedStats.length / 2);
+      return {
+        leftStats: sortedStats.slice(0, half),
+        rightStats: sortedStats.slice(half)
+      };
+    }
+  }, [sortedStats, isSingleColumn]);
+
+  const requestSort = (key: keyof TeamStats) => {
+    let direction: 'asc' | 'desc' = 'desc';
+    if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = 'asc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const toggleColumn = (col: keyof typeof visibleColumns) => {
+    setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }));
+  };
 
   if (data.loading) return <div className="text-center py-20 text-yellow-500 animate-pulse font-bold uppercase tracking-widest italic">CARREGANDO CLASSIFICAÇÃO...</div>;
 
@@ -117,54 +183,115 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
     </div>
   );
 
-  const TableHeader = () => (
-    <thead className="bg-[#0f0f0f] text-gray-400 text-[10px] uppercase font-bold tracking-wider">
-      <tr>
-        <th className="px-3 py-4 text-center">#</th>
-        <th className="px-3 py-4">Equipe</th>
-        <th className="px-3 py-4 text-center bg-yellow-900/10 text-yellow-500 font-black">PTS</th>
-        <th className="px-3 py-4 text-center text-orange-400/80">PTS/C</th>
-        <th className="px-3 py-4 text-center text-yellow-600/80">M.PTS</th>
-        <th className="px-3 py-4 text-center">ABTS</th>
-        <th className="px-3 py-4 text-center text-red-500/80">M.ABTS</th>
-        <th className="px-3 py-4 text-center">B</th>
-        <th className="px-3 py-4 text-center">S</th>
-      </tr>
-    </thead>
-  );
+  const TableHeader = () => {
+    const SortIcon = ({ column }: { column: keyof TeamStats }) => {
+      if (sortConfig.key !== column) return <ArrowUpDown size={10} className="opacity-20 group-hover:opacity-50" />;
+      return sortConfig.direction === 'asc' ? <ArrowUp size={10} className="text-yellow-500" /> : <ArrowDown size={10} className="text-yellow-500" />;
+    };
+
+    return (
+      <thead className="bg-[#0f0f0f] text-gray-400 text-[10px] uppercase font-bold tracking-wider">
+        <tr>
+          {visibleColumns.rank && <th className="px-3 py-4 text-center">#</th>}
+          {visibleColumns.team && <th className="px-3 py-4">Equipe</th>}
+          {visibleColumns.pts && (
+            <th 
+              className="px-3 py-4 text-center bg-yellow-900/10 text-yellow-500 font-black cursor-pointer group hover:bg-yellow-900/20"
+              onClick={() => requestSort('pts')}
+            >
+              <div className="flex items-center justify-center gap-1">PTS <SortIcon column="pts" /></div>
+            </th>
+          )}
+          {visibleColumns.ptsc && (
+            <th 
+              className="px-3 py-4 text-center text-orange-400/80 cursor-pointer group hover:bg-white/5"
+              onClick={() => requestSort('ptsc')}
+            >
+              <div className="flex items-center justify-center gap-1">PTS/C <SortIcon column="ptsc" /></div>
+            </th>
+          )}
+          {visibleColumns.avgPts && (
+            <th 
+              className="px-3 py-4 text-center text-yellow-600/80 cursor-pointer group hover:bg-white/5"
+              onClick={() => requestSort('avgPts')}
+            >
+              <div className="flex items-center justify-center gap-1">M.PTS <SortIcon column="avgPts" /></div>
+            </th>
+          )}
+          {visibleColumns.abts && (
+            <th 
+              className="px-3 py-4 text-center cursor-pointer group hover:bg-white/5"
+              onClick={() => requestSort('abts')}
+            >
+              <div className="flex items-center justify-center gap-1">ABTS <SortIcon column="abts" /></div>
+            </th>
+          )}
+          {visibleColumns.avgAbts && (
+            <th 
+              className="px-3 py-4 text-center text-red-500/80 cursor-pointer group hover:bg-white/5"
+              onClick={() => requestSort('avgAbts')}
+            >
+              <div className="flex items-center justify-center gap-1">M.ABTS <SortIcon column="avgAbts" /></div>
+            </th>
+          )}
+          {visibleColumns.b && (
+            <th 
+              className="px-3 py-4 text-center cursor-pointer group hover:bg-white/5"
+              onClick={() => requestSort('b')}
+            >
+              <div className="flex items-center justify-center gap-1">B <SortIcon column="b" /></div>
+            </th>
+          )}
+          {visibleColumns.s && (
+            <th 
+              className="px-3 py-4 text-center cursor-pointer group hover:bg-white/5"
+              onClick={() => requestSort('s')}
+            >
+              <div className="flex items-center justify-center gap-1">S <SortIcon column="s" /></div>
+            </th>
+          )}
+        </tr>
+      </thead>
+    );
+  };
 
   const TableRow = ({ team, index }: { team: TeamStats, index: number, key?: React.Key }) => {
     const isTop12 = index < 12;
+    const isGeneralFinalist = generalTop12.has(team.name);
     
     return (
       <tr 
         onClick={() => handleTeamClick(team.name)} 
         className={`hover:bg-yellow-900/10 transition-colors group cursor-pointer border-b border-gray-800/50 ${isTop12 ? 'relative overflow-hidden bg-yellow-500/5' : ''}`}
       >
-        <td className="px-3 py-3 text-center font-mono text-[11px] relative">
-            {isTop12 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500 shadow-[0_0_10px_#facc15]"></div>}
-            <span className={isTop12 ? 'text-yellow-500 font-black' : 'text-gray-500'}>{index + 1}</span>
-        </td>
-        <td className="px-3 py-3 font-bold text-white flex items-center gap-2">
-          {team.image && <img src={team.image} className="w-7 h-7 object-contain" alt={team.name}/>}
-          <div className="flex flex-col">
-            <span className={`uppercase italic text-[11px] truncate max-w-[90px] ${isTop12 ? 'text-yellow-400' : ''}`}>
-                {team.name}
-            </span>
-            {isTop12 && (
-                <span className="text-[7px] font-black text-yellow-600 uppercase tracking-widest flex items-center gap-1">
-                    <CheckCircle2 size={7} /> FINALISTA
-                </span>
-            )}
-          </div>
-        </td>
-        <td className={`px-3 py-3 text-center font-black text-sm ${isTop12 ? 'text-white bg-yellow-600/20' : 'text-yellow-500 bg-yellow-900/5'}`}>{team.pts}</td>
-        <td className="px-3 py-3 text-center text-orange-400/70 font-bold text-[11px]">{team.ptsc}</td>
-        <td className="px-3 py-3 text-center text-yellow-600/60 font-mono text-[10px]">{team.avgPts}</td>
-        <td className="px-3 py-3 text-center text-red-400 font-bold text-[11px]">{team.abts}</td>
-        <td className="px-3 py-3 text-center text-red-600/60 font-mono text-[10px]">{team.avgAbts}</td>
-        <td className="px-3 py-3 text-center text-yellow-600 font-bold text-[11px]">{team.b}</td>
-        <td className="px-3 py-3 text-center text-gray-400 text-[11px]">{team.s}</td>
+        {visibleColumns.rank && (
+          <td className="px-3 py-3 text-center font-mono text-[11px] relative">
+              {isTop12 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500 shadow-[0_0_10px_#facc15]"></div>}
+              <span className={isTop12 ? 'text-yellow-500 font-black' : 'text-gray-500'}>{index + 1}</span>
+          </td>
+        )}
+        {visibleColumns.team && (
+          <td className="px-3 py-3 font-bold text-white flex items-center gap-2">
+            {team.image && <img src={team.image} className="w-7 h-7 object-contain" alt={team.name}/>}
+            <div className="flex flex-col">
+              <span className={`uppercase italic text-[11px] truncate max-w-[90px] ${isTop12 ? 'text-yellow-400' : ''}`}>
+                  {team.name}
+              </span>
+              {isGeneralFinalist && (
+                  <span className="text-[7px] font-black text-yellow-600 uppercase tracking-widest flex items-center gap-1">
+                      <CheckCircle2 size={7} /> FINALISTA
+                  </span>
+              )}
+            </div>
+          </td>
+        )}
+        {visibleColumns.pts && <td className={`px-3 py-3 text-center font-black text-sm ${isTop12 ? 'text-white bg-yellow-600/20' : 'text-yellow-500 bg-yellow-900/5'}`}>{team.pts}</td>}
+        {visibleColumns.ptsc && <td className="px-3 py-3 text-center text-orange-400/70 font-bold text-[11px]">{team.ptsc}</td>}
+        {visibleColumns.avgPts && <td className="px-3 py-3 text-center text-yellow-600/60 font-mono text-[10px]">{team.avgPts}</td>}
+        {visibleColumns.abts && <td className="px-3 py-3 text-center text-red-400 font-bold text-[11px]">{team.abts}</td>}
+        {visibleColumns.avgAbts && <td className="px-3 py-3 text-center text-red-600/60 font-mono text-[10px]">{team.avgAbts}</td>}
+        {visibleColumns.b && <td className="px-3 py-3 text-center text-yellow-600 font-bold text-[11px]">{team.b}</td>}
+        {visibleColumns.s && <td className="px-3 py-3 text-center text-gray-400 text-[11px]">{team.s}</td>}
       </tr>
     );
   };
@@ -178,9 +305,50 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
             <button onClick={() => setPhase('FINALS')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${phase === 'FINALS' ? 'bg-yellow-500 text-black' : 'text-gray-400'}`}><Star size={14}/> Final</button>
           </div>
 
-          <div className="bg-yellow-500/10 border border-yellow-500/30 px-4 py-2 rounded-xl flex items-center gap-3">
-             <Crown size={18} className="text-yellow-500" />
-             <span className="text-[10px] font-black text-white uppercase tracking-widest italic">Critério: Pontos &gt; Booyahs &gt; Abates</span>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <button 
+                onClick={() => setShowColumnMenu(!showColumnMenu)}
+                className="bg-[#1a1a1a] border border-gray-800 p-2.5 rounded-xl text-gray-400 hover:text-yellow-500 hover:border-yellow-500/50 transition-all shadow-lg flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+              >
+                <Settings2 size={16} /> Colunas
+              </button>
+              
+              {showColumnMenu && (
+                <div className="absolute right-0 mt-2 w-56 bg-[#121215] border border-gray-700 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] z-[100] p-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="px-3 py-2 border-b border-gray-800 mb-2">
+                    <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Exibir Colunas</span>
+                  </div>
+                  <div className="space-y-1">
+                    {Object.entries({
+                      rank: '#',
+                      team: 'Equipe',
+                      pts: 'PTS',
+                      ptsc: 'PTS/C',
+                      avgPts: 'M.PTS',
+                      abts: 'ABTS',
+                      avgAbts: 'M.ABTS',
+                      b: 'B',
+                      s: 'S'
+                    }).map(([key, label]) => (
+                      <button
+                        key={key}
+                        onClick={() => toggleColumn(key as keyof typeof visibleColumns)}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[10px] font-bold uppercase italic transition-colors ${visibleColumns[key as keyof typeof visibleColumns] ? 'bg-yellow-500/10 text-yellow-500' : 'text-gray-500 hover:bg-white/5'}`}
+                      >
+                        {label}
+                        {visibleColumns[key as keyof typeof visibleColumns] ? <Eye size={12} /> : <EyeOff size={12} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-yellow-500/10 border border-yellow-500/30 px-4 py-2 rounded-xl flex items-center gap-3">
+               <Crown size={18} className="text-yellow-500" />
+               <span className="text-[10px] font-black text-white uppercase tracking-widest italic">Critério: Pontos &gt; Booyahs &gt; Abates</span>
+            </div>
           </div>
       </div>
 
@@ -192,10 +360,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
         <Top3Card title="Top 3 Abates" icon={<Crosshair size={24} />} teams={topAbts} metricKey="abts" metricLabel="Abates" colorClass="text-red-500" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className={`grid grid-cols-1 ${isSingleColumn ? '' : 'lg:grid-cols-2'} gap-6`}>
         <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800 shadow-xl">
           <div className="bg-[#0a0a0a] px-4 py-2 border-b border-gray-800 flex items-center justify-between">
-            <span className="text-[10px] font-black text-yellow-500 uppercase tracking-[0.2em]">Tier 1 • Top 1-12</span>
+            <span className="text-[10px] font-black text-yellow-500 uppercase tracking-[0.2em]">
+              {isSingleColumn ? 'Classificação da Rodada' : `Tier 1 • Top 1-${leftStats.length}`}
+            </span>
             <div className="flex items-center gap-2">
                 <TrendingUp size={12} className="text-yellow-500/50" />
                 <span className="text-[9px] text-gray-600 uppercase font-bold">Resumo Competitivo</span>
@@ -218,27 +388,31 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
           </div>
         </div>
 
-        <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800 shadow-xl">
-          <div className="bg-[#0a0a0a] px-4 py-2 border-b border-gray-800 flex items-center justify-between">
-            <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Tier 2 • Top 13-24</span>
-            <Shield size={14} className="text-gray-600 opacity-50" />
+        {!isSingleColumn && (
+          <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden border border-gray-800 shadow-xl">
+            <div className="bg-[#0a0a0a] px-4 py-2 border-b border-gray-800 flex items-center justify-between">
+              <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">
+                Tier 2 • Top {leftStats.length + 1}-{stats.length}
+              </span>
+              <Shield size={14} className="text-gray-600 opacity-50" />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left whitespace-nowrap">
+                <TableHeader />
+                <tbody className="divide-y divide-gray-800 text-sm font-medium">
+                  {rightStats.map((team, index) => (
+                    <TableRow key={team.name} team={team} index={index + leftStats.length} />
+                  ))}
+                  {rightStats.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="py-10 text-center text-gray-600 italic uppercase text-[10px]">Nenhuma equipe nesta faixa</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left whitespace-nowrap">
-              <TableHeader />
-              <tbody className="divide-y divide-gray-800 text-sm font-medium">
-                {rightStats.map((team, index) => (
-                  <TableRow key={team.name} team={team} index={index + 12} />
-                ))}
-                {rightStats.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="py-10 text-center text-gray-600 italic uppercase text-[10px]">Nenhuma equipe nesta faixa</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
