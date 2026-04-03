@@ -55,7 +55,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data }) => {
     maps: Array.from(new Set(data.details.map(d => d.MAPA))).filter(Boolean).sort(),
     rounds: Array.from(new Set(data.details.map(d => d.RD))).filter(Boolean).sort(),
     quedas: Array.from(new Set(data.details.map(d => d.Q))).filter(Boolean).sort(),
-    confrontations: Array.from(new Set(data.details.map(d => d.CONFRONTO))).filter(Boolean).sort(),
+    confrontations: Array.from(new Set([
+      ...data.confrontationsDimension.map(c => c.CONFRONTO),
+      ...data.details.map(d => d.CONFRONTO),
+      ...data.killFeed.map(k => k.CONFRONTO),
+      ...data.characters.map(c => c.Confronto),
+      ...data.players.map(p => p.CONFRONTO)
+    ].filter(Boolean))).sort(),
     grupos: Array.from(new Set(data.teamsReference.map(t => t.GRUPO))).filter(Boolean).sort() as string[],
   }), [data.details, data.teamsReference]);
 

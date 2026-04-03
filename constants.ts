@@ -15,7 +15,8 @@ export const CSV_URLS = {
   dHab3: "https://docs.google.com/spreadsheets/d/1aG4Gl14KUL93l_ovqhA_4Dx4P-BBG-eewcy1OAJ_L4M/export?format=csv&gid=47739906",
   dHab4: "https://docs.google.com/spreadsheets/d/1aG4Gl14KUL93l_ovqhA_4Dx4P-BBG-eewcy1OAJ_L4M/export?format=csv&gid=1414607890",
   dPets: "https://docs.google.com/spreadsheets/d/1aG4Gl14KUL93l_ovqhA_4Dx4P-BBG-eewcy1OAJ_L4M/export?format=csv&gid=1145644018",
-  dItem: "https://docs.google.com/spreadsheets/d/1aG4Gl14KUL93l_ovqhA_4Dx4P-BBG-eewcy1OAJ_L4M/export?format=csv&gid=1365432121"
+  dItem: "https://docs.google.com/spreadsheets/d/1aG4Gl14KUL93l_ovqhA_4Dx4P-BBG-eewcy1OAJ_L4M/export?format=csv&gid=1365432121",
+  dConfronto: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9bU8TKMzJ2KHLb59Pr99eBREUFqDAFigHO09-S2sY5JvvE10uaOfikSiy3xTJ8zyDB22I8FwXgF7V/pub?gid=1874790405&single=true&output=csv"
 };
 
 export const LOGO_URL = "https://i.ibb.co/d04qyJhF/image.png";

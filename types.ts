@@ -15,6 +15,7 @@ export interface PlayerData {
   MVP?: string;
   MAPA?: string;
   RD?: string;
+  CONFRONTO?: string;
   Q?: string;
 }
 
@@ -76,6 +77,11 @@ export interface SafeData {
   IMG: string;
 }
 
+export interface ConfrontationDimension {
+  CONFRONTO: string;
+  IMG?: string;
+}
+
 export interface GenericDimData {
   Name: string; 
   IMG: string;
@@ -105,6 +111,7 @@ export interface DashboardData {
   hab4: GenericDimData[];
   pets: GenericDimData[];
   items: GenericDimData[];
+  confrontationsDimension: ConfrontationDimension[];
   loading: boolean;
   lastUpdated: Date | null;
 }

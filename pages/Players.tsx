@@ -71,7 +71,15 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
     const activeHabs = Array.from(new Set(data.characters.map(c => c.Hab1))).filter(Boolean).sort();
     const grupos = Array.from(new Set(data.teamsReference.map(t => t.GRUPO))).filter(Boolean).sort() as string[];
 
-    return { teams, players, weapons: [], safes: [], maps, rounds, quedas, confrontations: [], activeHabs, grupos };
+    const confrontations = Array.from(new Set([
+      ...data.confrontationsDimension.map(c => c.CONFRONTO),
+      ...data.killFeed.map(k => k.CONFRONTO),
+      ...data.details.map(d => d.CONFRONTO),
+      ...data.characters.map(c => c.Confronto),
+      ...data.players.map(p => p.CONFRONTO)
+    ].filter(Boolean))).sort();
+
+    return { teams, players, weapons: [], safes: [], maps, rounds, quedas, confrontations, activeHabs, grupos };
   }, [data.players, data.killFeed, data.characters, data.playersDimension, data.teamsReference, filters.rodada]);
 
   const charactersMap = useMemo(() => {

@@ -81,47 +81,38 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
       activeUrls.fPlayersDados, activeUrls.fKillFeed, activeUrls.fDetalhes, activeUrls.fPersonagens,
       activeUrls.dTime, activeUrls.dPlayer, activeUrls.dArma, activeUrls.dSafe, activeUrls.dHab1, 
       activeUrls.dHab2, activeUrls.dHab3, activeUrls.dHab4, activeUrls.dPets, activeUrls.dItem,
-      activeUrls.dVitima
+      activeUrls.dVitima, activeUrls.dConfronto
     ];
 
     const responses = await Promise.all(urls.map(url => safeFetch(url)));
     
     // Parse players (Fonte Fato: fPlayersDados)
-    const players: PlayerData[] = parseCSV<any>(responses[0]).map(row => {
-        const player = getVal(row, ['PLAYER', 'Player', 'Jogador', 'JOGADOR', 'NOME', 'COMPETIDOR']);
-        let time = getVal(row, ['TIME', 'Time', 'Equipe', 'EQUIPE', 'TAG']);
-        
-        // Patch: VITNXP is in TS, not E1
-        if (player.toUpperCase() === 'VITNXP') {
-            time = 'TS';
-        }
-
-        return {
-            PLAYER: player,
-            TIME: time,
-            S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDAS']),
-            Abates: getVal(row, ['ABATES', 'Abates', 'Kills', 'KILLS', 'ABTS', 'KILL']) || '0',
-            Dano: getVal(row, ['DANO', 'Damage', 'DMG']),
-            HS: getVal(row, ['HS', 'Headshot', 'HEADSHOTS', 'CAPA']),
-            Deitados: getVal(row, ['DEITADOS', 'Knockdowns', 'KNOCKS', 'DEITOU']),
-            Assistencias: getVal(row, ['ASSISTENCIAS', 'Assists', 'ASSIST']),
-            Gelos: getVal(row, ['GELOS', 'Walls', 'GELO']),
-            GelosDestruidos: getVal(row, ['GELOS DESTRUIDOS', 'Walls Destroyed', 'GELO DESTRUIDO']),
-            Reviveu: getVal(row, ['REVIVEU', 'Revived']),
-            AliadosRevividos: getVal(row, ['ALIADOS REVIVIDOS', 'Allies Revived']),
-            MVP: getVal(row, ['MVP', 'Mvp', 'M.V.P']),
-            MAPA: getVal(row, ['MAPA', 'Mapa', 'Map']),
-            RD: getVal(row, ['RD', 'Rd', 'Rodada', 'Round']),
-            Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
-        };
-    }).filter(p => p.PLAYER);
+    const players: PlayerData[] = parseCSV<any>(responses[0]).map(row => ({
+        PLAYER: getVal(row, ['PLAYER', 'Player', 'Jogador', 'JOGADOR', 'NOME', 'COMPETIDOR']),
+        TIME: getVal(row, ['TIME', 'Time', 'Equipe', 'EQUIPE', 'TAG']),
+        S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDAS']),
+        Abates: getVal(row, ['ABATES', 'Abates', 'Kills', 'KILLS', 'ABTS', 'KILL']) || '0',
+        Dano: getVal(row, ['DANO', 'Damage', 'DMG']),
+        HS: getVal(row, ['HS', 'Headshot', 'HEADSHOTS', 'CAPA']),
+        Deitados: getVal(row, ['DEITADOS', 'Knockdowns', 'KNOCKS', 'DEITOU']),
+        Assistencias: getVal(row, ['ASSISTENCIAS', 'Assists', 'ASSIST']),
+        Gelos: getVal(row, ['GELOS', 'Walls', 'GELO']),
+        GelosDestruidos: getVal(row, ['GELOS DESTRUIDOS', 'Walls Destroyed', 'GELO DESTRUIDO']),
+        Reviveu: getVal(row, ['REVIVEU', 'Revived']),
+        AliadosRevividos: getVal(row, ['ALIADOS REVIVIDOS', 'Allies Revived']),
+        MVP: getVal(row, ['MVP', 'Mvp', 'M.V.P']),
+        MAPA: getVal(row, ['MAPA', 'Mapa', 'Map']),
+        RD: getVal(row, ['RD', 'Rd', 'Rodada', 'Round']),
+        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'CONFRONTO ', 'CONFRONTO_']),
+        Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
+    })).filter(p => p.PLAYER);
 
     // Parse KillFeed (Fonte Fato)
     const killFeed: KillFeed[] = parseCSV<any>(responses[1]).map(row => ({
         PLAYER: getVal(row, ['PLAYER', 'Player', 'Killer', 'Matador']),
         VITIMA: getVal(row, ['VITIMA', 'Vitima', 'Victim', 'QUEM MORREU']),
         ARMA: getVal(row, ['ARMA', 'Arma', 'Weapon']),
-        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto']),
+        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'CONFRONTO ', 'CONFRONTO_']),
         MAPA: getVal(row, ['MAPA', 'Mapa', 'Map']),
         RD: getVal(row, ['RD', 'Rd', 'Rodada']),
         Q: getVal(row, ['Q', 'QUEDA', 'Queda']),
@@ -133,7 +124,7 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
         TIME: getVal(row, ['TIME', 'Time', 'Equipe']),
         MAPA: getVal(row, ['MAPA', 'Mapa']),
         RD: getVal(row, ['RD', 'Rd', 'Rodada']),
-        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto']),
+        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'CONFRONTO ', 'CONFRONTO_']),
         PTS: getVal(row, ['PTS', 'PONTOS', 'PONTOS TOTAL']) || '0',
         PTSC: getVal(row, ['PTSC', 'PTS/C', 'COLOCACAO']) || '0',
         POS: getVal(row, ['POS', 'POSICAO']) || '0',
@@ -144,31 +135,21 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
     })).filter(d => d.TIME);
     
     // Parse Loadouts (Fonte Fato)
-    const characters: CharacterData[] = parseCSV<any>(responses[3]).map(row => {
-        const player = getVal(row, ['Player', 'Jogador', 'PLAYER', 'NOME']);
-        let time = getVal(row, ['Time', 'Equipe', 'TIME']);
-
-        // Patch: VITNXP is in TS, not E1
-        if (player.toUpperCase() === 'VITNXP') {
-            time = 'TS';
-        }
-
-        return {
-            Player: player,
-            Time: time,
-            Hab1: getVal(row, ['Hab1', 'Hab 1', 'Ativa']),
-            Hab2: getVal(row, ['Hab2', 'Hab 2', 'Passiva 1']),
-            Hab3: getVal(row, ['Hab3', 'Hab 3', 'Passiva 2']),
-            Hab4: getVal(row, ['Hab4', 'Hab 4', 'Passiva 3']),
-            Pet: getVal(row, ['Pet', 'PET']),
-            Item: getVal(row, ['Item', 'ITEM']),
-            Rd: getVal(row, ['Rd', 'RD', 'Rodada']),
-            Confronto: getVal(row, ['Confronto', 'CONFRONTO']),
-            Mapa: getVal(row, ['Mapa', 'MAPA']),
-            S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDA']),
-            Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
-        };
-    }).filter(c => c.Player);
+    const characters: CharacterData[] = parseCSV<any>(responses[3]).map(row => ({
+        Player: getVal(row, ['Player', 'Jogador', 'PLAYER', 'NOME']),
+        Time: getVal(row, ['Time', 'Equipe', 'TIME']),
+        Hab1: getVal(row, ['Hab1', 'Hab 1', 'Ativa']),
+        Hab2: getVal(row, ['Hab2', 'Hab 2', 'Passiva 1']),
+        Hab3: getVal(row, ['Hab3', 'Hab 3', 'Passiva 2']),
+        Hab4: getVal(row, ['Hab4', 'Hab 4', 'Passiva 3']),
+        Pet: getVal(row, ['Pet', 'PET']),
+        Item: getVal(row, ['Item', 'ITEM']),
+        Rd: getVal(row, ['Rd', 'RD', 'Rodada']),
+        Confronto: getVal(row, ['Confronto', 'CONFRONTO', 'CF', 'CONFRONTO ', 'CONFRONTO_']),
+        Mapa: getVal(row, ['Mapa', 'MAPA']),
+        S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDA']),
+        Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
+    })).filter(c => c.Player);
 
     return {
       players, killFeed, details, characters,
@@ -187,11 +168,15 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
       pets: normalizeDim(parseCSV<any>(responses[12]), 'Pet'),
       items: normalizeDim(parseCSV<any>(responses[13]), 'Item'),
       victimsDimension: normalizeDim(parseCSV<any>(responses[14]), 'Vitima'),
+      confrontationsDimension: parseCSV<any>(responses[15]).map(row => ({
+        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'NOME', 'NAME']),
+        IMG: getVal(row, ['IMG', 'Img', 'Imagem', 'URL'])
+      })).filter(c => c.CONFRONTO),
       loading: false, lastUpdated: new Date()
     };
   } catch (error) {
     console.error("Erro crítico ao buscar dados:", error);
-    return { players: [], killFeed: [], details: [], characters: [], teamsReference: [], playersDimension: [], victimsDimension: [], weapons: [], safes: [], hab1: [], hab2: [], hab3: [], hab4: [], pets: [], items: [], loading: false, lastUpdated: null };
+    return { players: [], killFeed: [], details: [], characters: [], teamsReference: [], playersDimension: [], victimsDimension: [], weapons: [], safes: [], hab1: [], hab2: [], hab3: [], hab4: [], pets: [], items: [], confrontationsDimension: [], loading: false, lastUpdated: null };
   }
 };
 
@@ -246,6 +231,10 @@ export const calculateTeamStats = (data: DashboardData): TeamStats[] => {
       stats.avgAbts = parseFloat((stats.abts / stats.s).toFixed(2));
       stats.avgPts = parseFloat((stats.pts / stats.s).toFixed(2));
       stats.avgPtsc = parseFloat((stats.ptsc / stats.s).toFixed(2));
+    }
+    if (stats.pts > 0) {
+      stats.percentPos = parseFloat(((stats.ptsc / stats.pts) * 100).toFixed(1));
+      stats.percentAbts = parseFloat(((stats.abts / stats.pts) * 100).toFixed(1));
     }
     return stats;
   }).sort((a, b) => {

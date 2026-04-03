@@ -45,7 +45,13 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
     safes: Array.from(new Set(data.killFeed.map(k => k.SAFE))).filter(Boolean).sort(),
     maps: Array.from(new Set(data.killFeed.map(k => k.MAPA))).filter(Boolean).sort(),
     rounds: Array.from(new Set(data.killFeed.map(k => k.RD))).filter(Boolean).sort(),
-    confrontations: Array.from(new Set(data.killFeed.map(k => k.CONFRONTO))).filter(Boolean).sort(),
+    confrontations: Array.from(new Set([
+      ...data.confrontationsDimension.map(c => c.CONFRONTO),
+      ...data.killFeed.map(k => k.CONFRONTO),
+      ...data.details.map(d => d.CONFRONTO),
+      ...data.characters.map(c => c.Confronto),
+      ...data.players.map(p => p.CONFRONTO)
+    ].filter(Boolean))).sort(),
     quedas: Array.from(new Set(data.killFeed.map(k => k.Q))).filter(Boolean).sort(),
     grupos: Array.from(new Set(data.teamsReference.map(t => t.GRUPO))).filter(Boolean).sort() as string[],
   }), [data.killFeed, data.players, data.teamsReference]);

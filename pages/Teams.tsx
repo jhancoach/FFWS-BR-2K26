@@ -13,6 +13,13 @@ interface TeamsProps {
 
 const COLORS = ['#EAB308', '#F97316', '#EF4444', '#3B82F6', '#A855F7', '#10B981', '#6366F1', '#EC4899'];
 
+const getTeamCharacteristic = (percentAbts: number, percentPos: number) => {
+  const diff = Math.abs(percentAbts - percentPos);
+  if (diff <= 5) return { label: 'Equilibrado', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30', icon: <Activity size={14} /> };
+  if (percentAbts > percentPos) return { label: 'Agressivo', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30', icon: <Flame size={14} /> };
+  return { label: 'Posicional', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', icon: <Target size={14} /> };
+};
+
 const Teams: React.FC<TeamsProps> = ({ data }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -68,7 +75,13 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     maps: Array.from(new Set(data.players.map(p => p.MAPA))).filter(Boolean).sort(),
     rounds: Array.from(new Set(data.players.map(p => p.RD))).filter(Boolean).sort(),
     quedas: Array.from(new Set(data.players.map(p => p.Q))).filter(Boolean).sort(),
-    confrontations: [],
+    confrontations: Array.from(new Set([
+      ...data.confrontationsDimension.map(c => c.CONFRONTO),
+      ...data.killFeed.map(k => k.CONFRONTO),
+      ...data.details.map(d => d.CONFRONTO),
+      ...data.characters.map(c => c.Confronto),
+      ...data.players.map(p => p.CONFRONTO)
+    ].filter(Boolean))).sort(),
     grupos: Array.from(new Set(data.teamsReference.map(t => t.GRUPO))).filter(Boolean).sort() as string[]
   }), [data.players, data.teamsReference]);
 
@@ -336,6 +349,15 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                              <div className="flex items-center gap-3 justify-center md:justify-start">
                                 <span className="bg-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-tighter">PRO LEAGUE</span>
                                 <span className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">DADOS FILTRADOS</span>
+                                {(() => {
+                                    const char = getTeamCharacteristic(selectedTeamStats.percentAbts, selectedTeamStats.percentPos);
+                                    return (
+                                        <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border ${char.bg} ${char.border} ${char.color} text-[9px] font-black uppercase tracking-widest shadow-lg`}>
+                                            {char.icon}
+                                            {char.label}
+                                        </div>
+                                    );
+                                })()}
                              </div>
                              <h1 className="text-5xl md:text-7xl font-black italic text-white tracking-tighter uppercase leading-none">{selectedTeamStats.name}</h1>
                              <div className="flex flex-wrap justify-center md:justify-start gap-4">
@@ -343,6 +365,20 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                                  <StatBadge label="VITÓRIAS" value={selectedTeamStats.b} color="text-orange-500" />
                                  <StatBadge label="KILLS" value={selectedTeamStats.abts} color="text-red-500" />
                                  <StatBadge label="MÉDIA EQUIPE" value={selectedTeamStats.avgAbts} color="text-blue-500" />
+                             </div>
+                             
+                             <div className="mt-6 max-w-md">
+                                 <div className="flex justify-between text-[9px] font-black uppercase tracking-widest mb-2 italic">
+                                     <span className="text-red-500 flex items-center gap-1"><Flame size={10}/> ABATES ({selectedTeamStats.percentAbts}%)</span>
+                                     <span className="text-yellow-500 flex items-center gap-1">POSIÇÃO ({selectedTeamStats.percentPos}%) <Target size={10}/></span>
+                                 </div>
+                                 <div className="h-2 w-full bg-gray-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
+                                     <div className="h-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all duration-1000" style={{ width: `${selectedTeamStats.percentAbts}%` }}></div>
+                                     <div className="h-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)] transition-all duration-1000" style={{ width: `${selectedTeamStats.percentPos}%` }}></div>
+                                 </div>
+                                 <p className="text-[8px] text-gray-500 mt-2 font-bold uppercase tracking-widest italic leading-relaxed">
+                                     * Distribuição baseada na origem dos pontos totais da equipe.
+                                 </p>
                              </div>
                          </div>
                     </div>
@@ -704,7 +740,18 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                             </div>
                             <div className="text-right">
                                 <h3 className="text-xl font-black italic text-white uppercase leading-none group-hover:text-yellow-500 transition-colors">{team.name}</h3>
-                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1 block">{team.pts} PONTOS</span>
+                                <div className="flex flex-col items-end gap-1 mt-1">
+                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest block">{team.pts} PONTOS</span>
+                                    {(() => {
+                                        const char = getTeamCharacteristic(team.percentAbts, team.percentPos);
+                                        return (
+                                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border ${char.bg} ${char.border} ${char.color} text-[8px] font-black uppercase tracking-widest`}>
+                                                {char.icon}
+                                                {char.label}
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
                             </div>
                         </div>
                         <div className="mt-6 flex justify-center">
@@ -739,7 +786,18 @@ const BottomList = ({ title, data, metric, label, color, onSelect }: any) => (
                         <div className="w-8 h-8 bg-black rounded-lg border border-gray-800 p-1 flex items-center justify-center">
                             {team.image ? <img src={team.image} alt={team.name} className="w-full h-full object-contain" /> : <Shield size={14} className="text-gray-700" />}
                         </div>
-                        <span className="text-xs font-bold text-gray-300 uppercase italic group-hover:text-white transition-colors">{team.name}</span>
+                        <div className="flex flex-col">
+                            <span className="text-xs font-bold text-gray-300 uppercase italic group-hover:text-white transition-colors leading-none">{team.name}</span>
+                            {(() => {
+                                const char = getTeamCharacteristic(team.percentAbts, team.percentPos);
+                                return (
+                                    <div className={`flex items-center gap-1 mt-1 ${char.color} text-[7px] font-black uppercase tracking-widest`}>
+                                        {char.icon}
+                                        {char.label}
+                                    </div>
+                                );
+                            })()}
+                        </div>
                     </div>
                     <div className="text-right">
                         <span className={`text-sm font-black italic ${color}`}>{team[metric]}</span>
