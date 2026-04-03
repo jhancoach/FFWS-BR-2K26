@@ -50,14 +50,41 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
 
   const normalize = (val: string | undefined) => (val || '').trim().toUpperCase();
 
-  const filteredTeamStats = useMemo(() => {
+  const filteredData = useMemo(() => {
     const filteredDetails = data.details.filter(d => {
       if (filters.map.length > 0 && !filters.map.some(m => normalize(m) === normalize(d.MAPA))) return false;
       if (filters.rodada.length > 0 && !filters.rodada.some(r => normalize(r) === normalize(d.RD))) return false;
       if (filters.queda.length > 0 && !filters.queda.some(q => normalize(q) === normalize(d.Q))) return false;
+      if (filters.confrontation.length > 0 && !filters.confrontation.some(c => normalize(c) === normalize(d.CONFRONTO))) return false;
       return true;
     });
-    const stats = calculateTeamStats({ ...data, details: filteredDetails });
+
+    const filteredPlayers = data.players.filter(p => {
+      if (filters.map.length > 0 && !filters.map.some(m => normalize(m) === normalize(p.MAPA))) return false;
+      if (filters.rodada.length > 0 && !filters.rodada.some(r => normalize(r) === normalize(p.RD))) return false;
+      if (filters.queda.length > 0 && !filters.queda.some(q => normalize(q) === normalize(p.Q))) return false;
+      if (filters.confrontation.length > 0 && !filters.confrontation.some(c => normalize(c) === normalize(p.CONFRONTO))) return false;
+      return true;
+    });
+
+    const filteredKillFeed = data.killFeed.filter(k => {
+      if (filters.map.length > 0 && !filters.map.some(m => normalize(m) === normalize(k.MAPA))) return false;
+      if (filters.rodada.length > 0 && !filters.rodada.some(r => normalize(r) === normalize(k.RD))) return false;
+      if (filters.queda.length > 0 && !filters.queda.some(q => normalize(q) === normalize(k.Q))) return false;
+      if (filters.confrontation.length > 0 && !filters.confrontation.some(c => normalize(c) === normalize(k.CONFRONTO))) return false;
+      return true;
+    });
+
+    return {
+      ...data,
+      details: filteredDetails,
+      players: filteredPlayers,
+      killFeed: filteredKillFeed
+    };
+  }, [data, filters]);
+
+  const filteredTeamStats = useMemo(() => {
+    const stats = calculateTeamStats(filteredData);
     
     // Filtro de Grupo
     if (filters.grupo.length > 0) {
@@ -65,7 +92,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     }
     
     return stats;
-  }, [data, filters]);
+  }, [filteredData, filters.grupo]);
   
   const filterOptions = useMemo(() => ({
     teams: Array.from(new Set(data.players.map(p => p.TIME))).filter(Boolean).sort(),
@@ -99,14 +126,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
   const teamRosterData = useMemo(() => {
       const rosters: Record<string, { name: string, kills: number, matches: number, avg: string }[]> = {};
       
-      const filteredPlayers = data.players.filter(p => {
-          if (filters.map.length > 0 && !filters.map.some(m => normalize(m) === normalize(p.MAPA))) return false;
-          if (filters.rodada.length > 0 && !filters.rodada.some(r => normalize(r) === normalize(p.RD))) return false;
-          if (filters.queda.length > 0 && !filters.queda.some(q => normalize(q) === normalize(p.Q))) return false;
-          return true;
-      });
-
-      filteredPlayers.forEach(p => {
+      filteredData.players.forEach(p => {
           if (!p.TIME) return;
           if (!rosters[p.TIME]) rosters[p.TIME] = [];
           
@@ -127,13 +147,13 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
       });
 
       return rosters;
-  }, [data.players, filters]);
+  }, [filteredData.players]);
 
   // Estatísticas de Posição (Quantidade de partidas por posição)
   const positionStatsData = useMemo(() => {
     if (!selectedTeamName) return [];
     const counts: Record<number, number> = {};
-    data.details.filter(d => d.TIME === selectedTeamName).forEach(d => {
+    filteredData.details.filter(d => d.TIME === selectedTeamName).forEach(d => {
         const pos = parseInt(d.POS) || 0;
         if (pos > 0) counts[pos] = (counts[pos] || 0) + 1;
     });
@@ -141,13 +161,13 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
         pos: parseInt(pos), 
         count 
     })).sort((a, b) => a.pos - b.pos);
-  }, [data.details, selectedTeamName]);
+  }, [filteredData.details, selectedTeamName]);
 
   // Evolução por Rodada
   const evolutionData = useMemo(() => {
      if (!selectedTeamName) return [];
      const roundsMap = new Map<string, { rd: string, pts: number, kills: number }>();
-     data.details.filter(d => d.TIME === selectedTeamName).forEach(d => {
+     filteredData.details.filter(d => d.TIME === selectedTeamName).forEach(d => {
          if (!d.RD) return;
          if (!roundsMap.has(d.RD)) roundsMap.set(d.RD, { rd: d.RD, pts: 0, kills: 0 });
          const r = roundsMap.get(d.RD)!;
@@ -159,38 +179,38 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
          const numB = parseInt(b.rd.replace(/\D/g, '')) || 0;
          return numA - numB;
      });
-  }, [data.details, selectedTeamName]);
+  }, [filteredData.details, selectedTeamName]);
 
   // Detalhes das partidas para a posição selecionada
   const selectedPositionMatchDetails = useMemo(() => {
     if (!selectedTeamName || selectedPosition === null) return [];
-    return data.details.filter(d => d.TIME === selectedTeamName && parseInt(d.POS) === selectedPosition)
+    return filteredData.details.filter(d => d.TIME === selectedTeamName && parseInt(d.POS) === selectedPosition)
       .sort((a, b) => {
         const rdA = parseInt(a.RD.replace(/\D/g, '')) || 0;
         const rdB = parseInt(b.RD.replace(/\D/g, '')) || 0;
         if (rdA !== rdB) return rdA - rdB;
         return (parseInt(a.Q) || 0) - (parseInt(b.Q) || 0);
       });
-  }, [data.details, selectedTeamName, selectedPosition]);
+  }, [filteredData.details, selectedTeamName, selectedPosition]);
 
   // Detalhes das partidas para o mapa selecionado
   const selectedMapMatchDetails = useMemo(() => {
     if (!selectedTeamName || !selectedMap) return [];
-    return data.details.filter(d => d.TIME === selectedTeamName && normalize(d.MAPA) === normalize(selectedMap))
+    return filteredData.details.filter(d => d.TIME === selectedTeamName && normalize(d.MAPA) === normalize(selectedMap))
       .sort((a, b) => {
         const rdA = parseInt(a.RD.replace(/\D/g, '')) || 0;
         const rdB = parseInt(b.RD.replace(/\D/g, '')) || 0;
         if (rdA !== rdB) return rdA - rdB;
         return (parseInt(a.Q) || 0) - (parseInt(b.Q) || 0);
       });
-  }, [data.details, selectedTeamName, selectedMap]);
+  }, [filteredData.details, selectedTeamName, selectedMap]);
 
   // Performance por Partida / Queda
   const dropStatsData = useMemo(() => {
       if (!selectedTeamName) return [];
       const stats = new Map<string, { q: string, pts: number, kills: number, matches: number }>();
 
-      data.details.filter(d => d.TIME === selectedTeamName).forEach(d => {
+      filteredData.details.filter(d => d.TIME === selectedTeamName).forEach(d => {
           const q = d.Q || '1';
           if (!stats.has(q)) stats.set(q, { q, pts: 0, kills: 0, matches: 0 });
           const s = stats.get(q)!;
@@ -204,25 +224,25 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
           avgPts: (s.pts / s.matches).toFixed(2),
           avgKills: (s.kills / s.matches).toFixed(2)
       })).sort((a, b) => parseInt(a.q) - parseInt(b.q));
-  }, [data.details, selectedTeamName]);
+  }, [filteredData.details, selectedTeamName]);
 
   // Detalhes das partidas para a queda selecionada
   const selectedDropMatchDetails = useMemo(() => {
     if (!selectedTeamName || !selectedDrop) return [];
-    return data.details.filter(d => d.TIME === selectedTeamName && normalize(d.Q) === normalize(selectedDrop))
+    return filteredData.details.filter(d => d.TIME === selectedTeamName && normalize(d.Q) === normalize(selectedDrop))
       .sort((a, b) => {
         const rdA = parseInt(a.RD.replace(/\D/g, '')) || 0;
         const rdB = parseInt(b.RD.replace(/\D/g, '')) || 0;
         return rdA - rdB;
       });
-  }, [data.details, selectedTeamName, selectedDrop]);
+  }, [filteredData.details, selectedTeamName, selectedDrop]);
 
   // Performance por Mapa Completo
   const mapPerformanceData = useMemo(() => {
     if (!selectedTeamName) return [];
     const stats = new Map<string, { map: string, pts: number, ptsc: number, kills: number, matches: number, booyahs: number }>();
     
-    data.details.filter(d => d.TIME === selectedTeamName).forEach(d => {
+    filteredData.details.filter(d => d.TIME === selectedTeamName).forEach(d => {
         const m = d.MAPA || 'N/A';
         if (!stats.has(m)) stats.set(m, { map: m, pts: 0, ptsc: 0, kills: 0, matches: 0, booyahs: 0 });
         const s = stats.get(m)!;
@@ -239,15 +259,15 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
         avgPtsc: (s.ptsc / s.matches).toFixed(2),
         avgKills: (s.kills / s.matches).toFixed(2)
     })).sort((a, b) => b.pts - a.pts);
-  }, [data.details, selectedTeamName]);
+  }, [filteredData.details, selectedTeamName]);
 
   // Abates por Safe
   const safeStatsData = useMemo(() => {
     if (!selectedTeamName) return [];
-    const teamPlayers = new Set(data.players.filter(p => p.TIME === selectedTeamName).map(p => normalize(p.PLAYER)));
+    const teamPlayers = new Set(filteredData.players.filter(p => p.TIME === selectedTeamName).map(p => normalize(p.PLAYER)));
     const safeCounts: Record<string, number> = {};
 
-    data.killFeed.forEach(k => {
+    filteredData.killFeed.forEach(k => {
         if (teamPlayers.has(normalize(k.PLAYER))) {
             const safe = k.SAFE || 'OUT';
             safeCounts[safe] = (safeCounts[safe] || 0) + 1;
@@ -255,17 +275,17 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     });
 
     return Object.entries(safeCounts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
-  }, [data.killFeed, data.players, selectedTeamName]);
+  }, [filteredData.killFeed, filteredData.players, selectedTeamName]);
 
   // Classificação por Mapa (Comparativo)
   const mapRankings = useMemo(() => {
-    const maps = Array.from(new Set(data.details.map(d => d.MAPA))).filter(Boolean) as string[];
+    const maps = Array.from(new Set(filteredData.details.map(d => d.MAPA))).filter(Boolean) as string[];
     return maps.map(mapName => {
-      const mapDetails = data.details.filter(d => normalize(d.MAPA) === normalize(mapName));
-      const stats = calculateTeamStats({ ...data, details: mapDetails });
+      const mapDetails = filteredData.details.filter(d => normalize(d.MAPA) === normalize(mapName));
+      const stats = calculateTeamStats({ ...filteredData, details: mapDetails });
       return { mapName, stats };
     });
-  }, [data]);
+  }, [filteredData]);
 
   // Piores Times (Bottom Rankings)
   const bottomRankings = useMemo(() => {
