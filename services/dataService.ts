@@ -91,6 +91,7 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
         PLAYER: getVal(row, ['PLAYER', 'Player', 'Jogador', 'JOGADOR', 'NOME', 'COMPETIDOR']),
         TIME: getVal(row, ['TIME', 'Time', 'Equipe', 'EQUIPE', 'TAG']),
         S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDAS']),
+        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'CONFRONTO ', 'CONFRONTO_', 'CONFRONTOS', 'Confrontos', 'NOME', 'NAME']),
         Abates: getVal(row, ['ABATES', 'Abates', 'Kills', 'KILLS', 'ABTS', 'KILL']) || '0',
         Dano: getVal(row, ['DANO', 'Damage', 'DMG']),
         HS: getVal(row, ['HS', 'Headshot', 'HEADSHOTS', 'CAPA']),
@@ -103,7 +104,6 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
         MVP: getVal(row, ['MVP', 'Mvp', 'M.V.P']),
         MAPA: getVal(row, ['MAPA', 'Mapa', 'Map']),
         RD: getVal(row, ['RD', 'Rd', 'Rodada', 'Round']),
-        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'CONFRONTO ', 'CONFRONTO_']),
         Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
     })).filter(p => p.PLAYER);
 
@@ -112,7 +112,7 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
         PLAYER: getVal(row, ['PLAYER', 'Player', 'Killer', 'Matador']),
         VITIMA: getVal(row, ['VITIMA', 'Vitima', 'Victim', 'QUEM MORREU']),
         ARMA: getVal(row, ['ARMA', 'Arma', 'Weapon']),
-        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'CONFRONTO ', 'CONFRONTO_']),
+        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'CONFRONTO ', 'CONFRONTO_', 'CONFRONTOS', 'Confrontos', 'NOME', 'NAME']),
         MAPA: getVal(row, ['MAPA', 'Mapa', 'Map']),
         RD: getVal(row, ['RD', 'Rd', 'Rodada']),
         Q: getVal(row, ['Q', 'QUEDA', 'Queda']),
@@ -124,7 +124,7 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
         TIME: getVal(row, ['TIME', 'Time', 'Equipe']),
         MAPA: getVal(row, ['MAPA', 'Mapa']),
         RD: getVal(row, ['RD', 'Rd', 'Rodada']),
-        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'CONFRONTO ', 'CONFRONTO_']),
+        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'CONFRONTO ', 'CONFRONTO_', 'CONFRONTOS', 'Confrontos', 'NOME', 'NAME']),
         PTS: getVal(row, ['PTS', 'PONTOS', 'PONTOS TOTAL']) || '0',
         PTSC: getVal(row, ['PTSC', 'PTS/C', 'COLOCACAO']) || '0',
         POS: getVal(row, ['POS', 'POSICAO']) || '0',
@@ -145,8 +145,8 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
         Pet: getVal(row, ['Pet', 'PET']),
         Item: getVal(row, ['Item', 'ITEM']),
         Rd: getVal(row, ['Rd', 'RD', 'Rodada']),
-        Confronto: getVal(row, ['Confronto', 'CONFRONTO', 'CF', 'CONFRONTO ', 'CONFRONTO_']),
-        Mapa: getVal(row, ['Mapa', 'MAPA']),
+        Confronto: getVal(row, ['Confronto', 'CONFRONTO', 'CF', 'CONFRONTO ', 'CONFRONTO_', 'CONFRONTOS', 'Confrontos', 'NOME', 'NAME']),
+        Mapa: getVal(row, ['Mapa', 'MAPA', 'Map']),
         S: getVal(row, ['S', 'Partida', 'Quedas', 'Q', 'QUEDA']),
         Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || getVal(row, ['S', 'Partida'])
     })).filter(c => c.Player);
@@ -169,7 +169,7 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
       items: normalizeDim(parseCSV<any>(responses[13]), 'Item'),
       victimsDimension: normalizeDim(parseCSV<any>(responses[14]), 'Vitima'),
       confrontationsDimension: parseCSV<any>(responses[15]).map(row => ({
-        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'NOME', 'NAME']),
+        CONFRONTO: getVal(row, ['CONFRONTO', 'Confronto', 'CF', 'NOME', 'NAME', 'CONFRONTOS', 'Confrontos']),
         IMG: getVal(row, ['IMG', 'Img', 'Imagem', 'URL'])
       })).filter(c => c.CONFRONTO),
       loading: false, lastUpdated: new Date()

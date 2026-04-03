@@ -80,7 +80,7 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
     ].filter(Boolean))).sort();
 
     return { teams, players, weapons: [], safes: [], maps, rounds, quedas, confrontations, activeHabs, grupos };
-  }, [data.players, data.killFeed, data.characters, data.playersDimension, data.teamsReference, filters.rodada]);
+  }, [data.players, data.killFeed, data.characters, data.playersDimension, data.teamsReference, data.confrontationsDimension, data.details, filters.rodada]);
 
   const charactersMap = useMemo(() => {
       const m = new Map<string, any>();

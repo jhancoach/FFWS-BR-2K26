@@ -54,7 +54,7 @@ const KillFeedPage: React.FC<KillFeedPageProps> = ({ data }) => {
     ].filter(Boolean))).sort(),
     quedas: Array.from(new Set(data.killFeed.map(k => k.Q))).filter(Boolean).sort(),
     grupos: Array.from(new Set(data.teamsReference.map(t => t.GRUPO))).filter(Boolean).sort() as string[],
-  }), [data.killFeed, data.players, data.teamsReference]);
+  }), [data.killFeed, data.players, data.teamsReference, data.confrontationsDimension, data.details, data.characters]);
 
   const handleToggleFilter = (key: keyof typeof filters, value: string) => {
       setFilters(prev => {

@@ -83,7 +83,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
       ...data.players.map(p => p.CONFRONTO)
     ].filter(Boolean))).sort(),
     grupos: Array.from(new Set(data.teamsReference.map(t => t.GRUPO))).filter(Boolean).sort() as string[]
-  }), [data.players, data.teamsReference]);
+  }), [data.players, data.teamsReference, data.confrontationsDimension, data.killFeed, data.details, data.characters]);
 
   const selectedTeamName = filters.team.length === 1 ? filters.team[0] : null;
   const selectedTeamStats = selectedTeamName ? filteredTeamStats.find(t => t.name === selectedTeamName) : null;
