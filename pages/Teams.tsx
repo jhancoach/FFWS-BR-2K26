@@ -348,6 +348,53 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                     </div>
                 </div>
 
+                {/* Roster Performance Ordenada por Kills - GRID RESPONSIVO (SEM SCROLL) */}
+                <div className="bg-[#1a1a1a] p-8 rounded-3xl border border-gray-800 shadow-xl">
+                    <h3 className="text-white font-black text-sm mb-8 flex items-center gap-3 uppercase tracking-widest">
+                        <Users size={20} className="text-yellow-500"/> ROSTER PERFORMANCE (ORDENADO)
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {teamRosterData[selectedTeamName]?.map((player, idx) => {
+                            const totalKills = teamRosterData[selectedTeamName].reduce((acc, curr) => acc + curr.kills, 0) || 1;
+                            const percent = ((player.kills / totalKills) * 100).toFixed(1);
+                            return (
+                                <div 
+                                    key={idx} 
+                                    onClick={() => handlePlayerClick(player.name)} 
+                                    className="bg-black/40 p-4 rounded-2xl border border-white/5 flex flex-col gap-4 group cursor-pointer hover:border-yellow-500/40 transition-all active:scale-[0.98] shadow-lg"
+                                >
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black italic text-[10px] border transition-colors ${idx === 0 ? 'bg-yellow-500 text-black border-yellow-600 shadow-[0_0_10px_rgba(234,179,8,0.4)]' : 'bg-gray-900 text-gray-500 border-gray-800 group-hover:border-yellow-500/30'}`}>
+                                                {idx + 1}º
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-white font-black text-xs uppercase italic group-hover:text-yellow-500 transition-colors tracking-tight truncate">{player.name}</span>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-[8px] text-gray-600 font-bold uppercase tracking-widest">{player.matches} JOGOS</span>
+                                                    <span className="text-[8px] text-blue-400 font-black italic">AVG: {player.avg}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-red-500 font-black text-lg leading-none italic">{player.kills}</span>
+                                                <span className="text-[9px] text-blue-400 font-black italic mt-0.5">{percent}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="w-full bg-gray-950 h-1 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                                        <div className={`h-full rounded-full transition-all duration-700 ${idx === 0 ? 'bg-yellow-500' : 'bg-red-500/60'}`} style={{ width: `${percent}%` }}></div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {(!teamRosterData[selectedTeamName] || teamRosterData[selectedTeamName].length === 0) && (
+                            <div className="col-span-full py-8 text-center text-[10px] text-gray-700 font-black uppercase italic tracking-widest">Sem roster registrado</div>
+                        )}
+                    </div>
+                </div>
+
                 {/* Grid Principal */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-8 space-y-8">
@@ -576,54 +623,6 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                                         </div>
                                     </div>
                                 ))}
-                            </div>
-                        </div>
-
-                        {/* Roster Performance Ordenada por Kills */}
-                        <div className="bg-[#1a1a1a] p-8 rounded-3xl border border-gray-800 shadow-xl">
-                            <h3 className="text-white font-black text-sm mb-8 flex items-center gap-3 uppercase tracking-widest">
-                                <Users size={20} className="text-yellow-500"/> ROSTER PERFORMANCE (ORDENADO)
-                            </h3>
-                            <div className="space-y-3">
-                                {teamRosterData[selectedTeamName]?.map((player, idx) => {
-                                    const totalKills = teamRosterData[selectedTeamName].reduce((acc, curr) => acc + curr.kills, 0) || 1;
-                                    const percent = ((player.kills / totalKills) * 100).toFixed(1);
-                                    return (
-                                        <div 
-                                            key={idx} 
-                                            onClick={() => handlePlayerClick(player.name)} 
-                                            className="bg-black/40 p-4 rounded-2xl border border-white/5 flex flex-col gap-4 group cursor-pointer hover:border-yellow-500/40 transition-all active:scale-[0.98] shadow-lg"
-                                        >
-                                            <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black italic text-xs border transition-colors ${idx === 0 ? 'bg-yellow-500 text-black border-yellow-600 shadow-[0_0_10px_rgba(234,179,8,0.4)]' : 'bg-gray-900 text-gray-500 border-gray-800 group-hover:border-yellow-500/30'}`}>
-                                                        {idx + 1}º
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-white font-black text-sm uppercase italic group-hover:text-yellow-500 transition-colors tracking-tight">{player.name}</span>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">{player.matches} JOGOS</span>
-                                                            <span className="text-[9px] text-blue-400 font-black italic">AVG: {player.avg}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="text-red-500 font-black text-xl leading-none italic">{player.kills}</span>
-                                                        <span className="text-[10px] text-blue-400 font-black italic mt-1">{percent}%</span>
-                                                    </div>
-                                                    <span className="text-[9px] text-gray-600 font-black uppercase tracking-tighter">KILLS</span>
-                                                </div>
-                                            </div>
-                                            <div className="w-full bg-gray-950 h-1.5 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                                                <div className={`h-full rounded-full transition-all duration-700 ${idx === 0 ? 'bg-yellow-500' : 'bg-red-500/60'}`} style={{ width: `${percent}%` }}></div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                {(!teamRosterData[selectedTeamName] || teamRosterData[selectedTeamName].length === 0) && (
-                                    <div className="py-8 text-center text-[10px] text-gray-700 font-black uppercase italic tracking-widest">Sem roster registrado</div>
-                                )}
                             </div>
                         </div>
                     </div>

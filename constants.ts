@@ -1,7 +1,7 @@
 
 export const CSV_URLS = {
   fDetalhes: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9bU8TKMzJ2KHLb59Pr99eBREUFqDAFigHO09-S2sY5JvvE10uaOfikSiy3xTJ8zyDB22I8FwXgF7V/pub?gid=1560720549&single=true&output=csv",
-  fPersonagens: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRgoxT-XLG3ZW9PjezGA9fujbMBf7VX55uspeTVIoCPi4D4i5bz5uq5vyIGBlEaaOiI1qvq9f-Hj_PK/pub?gid=1045005047&single=true&output=csv",
+  fPersonagens: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9bU8TKMzJ2KHLb59Pr99eBREUFqDAFigHO09-S2sY5JvvE10uaOfikSiy3xTJ8zyDB22I8FwXgF7V/pub?gid=1045005047&single=true&output=csv",
   fPlayersDados: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9bU8TKMzJ2KHLb59Pr99eBREUFqDAFigHO09-S2sY5JvvE10uaOfikSiy3xTJ8zyDB22I8FwXgF7V/pub?gid=1193858435&single=true&output=csv",
   fKillFeed: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9bU8TKMzJ2KHLb59Pr99eBREUFqDAFigHO09-S2sY5JvvE10uaOfikSiy3xTJ8zyDB22I8FwXgF7V/pub?gid=1663256849&single=true&output=csv",
   fKilldia: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRgoxT-XLG3ZW9PjezGA9fujbMBf7VX55uspeTVIoCPi4D4i5bz5uq5vyIGBlEaaOiI1qvq9f-Hj_PK/pub?output=csv",
