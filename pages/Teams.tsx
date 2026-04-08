@@ -163,21 +163,39 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     })).sort((a, b) => a.pos - b.pos);
   }, [filteredData.details, selectedTeamName]);
 
-  // Evolução por Rodada
+  // Evolução por Rodada e Confronto
   const evolutionData = useMemo(() => {
      if (!selectedTeamName) return [];
-     const roundsMap = new Map<string, { rd: string, pts: number, kills: number }>();
+     const matchesMap = new Map<string, { label: string, rd: string, confronto: string, pts: number, kills: number }>();
+     
      filteredData.details.filter(d => d.TIME === selectedTeamName).forEach(d => {
          if (!d.RD) return;
-         if (!roundsMap.has(d.RD)) roundsMap.set(d.RD, { rd: d.RD, pts: 0, kills: 0 });
-         const r = roundsMap.get(d.RD)!;
-         r.pts += parseInt(d.PTS) || 0;
-         r.kills += parseInt(d.ABTS) || 0;
+         const conf = d.CONFRONTO || '';
+         const key = `${conf}|${d.RD}`;
+         
+         if (!matchesMap.has(key)) {
+             matchesMap.set(key, { 
+                 label: conf ? `${conf} - R${d.RD}` : `R${d.RD}`,
+                 rd: d.RD, 
+                 confronto: conf,
+                 pts: 0, 
+                 kills: 0
+             });
+         }
+         const m = matchesMap.get(key)!;
+         m.pts += parseInt(d.PTS) || 0;
+         m.kills += parseInt(d.ABTS) || 0;
      });
-     return Array.from(roundsMap.values()).sort((a,b) => {
-         const numA = parseInt(a.rd.replace(/\D/g, '')) || 0;
-         const numB = parseInt(b.rd.replace(/\D/g, '')) || 0;
-         return numA - numB;
+
+     return Array.from(matchesMap.values()).sort((a, b) => {
+         const rdA = parseInt(a.rd.replace(/\D/g, '')) || 0;
+         const rdB = parseInt(b.rd.replace(/\D/g, '')) || 0;
+         if (rdA !== rdB) return rdA - rdB;
+
+         const confA = parseInt(a.confronto.replace(/\D/g, '')) || 0;
+         const confB = parseInt(b.confronto.replace(/\D/g, '')) || 0;
+         if (confA !== confB) return confA - confB;
+         return a.confronto.localeCompare(b.confronto);
      });
   }, [filteredData.details, selectedTeamName]);
 
@@ -525,9 +543,13 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart data={evolutionData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                                                <XAxis dataKey="rd" stroke="#444" fontSize={11} fontWeight="bold" axisLine={false} tickLine={false} />
+                                                <XAxis dataKey="label" stroke="#444" fontSize={10} fontWeight="bold" axisLine={false} tickLine={false} />
                                                 <YAxis stroke="#444" fontSize={10} axisLine={false} tickLine={false} />
-                                                <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '15px' }} />
+                                                <Tooltip 
+                                                    cursor={{fill: 'rgba(255,255,255,0.05)'}} 
+                                                    contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '15px' }}
+                                                    labelStyle={{ color: '#EAB308', fontWeight: 'bold', marginBottom: '5px' }}
+                                                />
                                                 <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
                                                 <Bar dataKey="pts" name="Pontos" fill="#EAB308" radius={[4, 4, 0, 0]} barSize={35}>
                                                     <LabelList dataKey="pts" position="top" fill="#fff" fontSize={10} fontWeight="900" />
