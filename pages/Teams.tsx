@@ -40,6 +40,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
   const [selectedDrop, setSelectedDrop] = useState<string | null>(null);
   const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'gallery' | 'mapRanking' | 'bottomRanking' | 'mapAnalysis'>('gallery');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'pts', direction: 'desc' });
 
   useEffect(() => {
       if (location.state?.team) {
@@ -301,9 +302,25 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     return maps.map(mapName => {
       const mapDetails = filteredData.details.filter(d => normalize(d.MAPA) === normalize(mapName));
       const stats = calculateTeamStats({ ...filteredData, details: mapDetails });
-      return { mapName, stats };
+      
+      // Aplicar Ordenação
+      const sortedStats = [...stats].sort((a: any, b: any) => {
+        const aValue = a[sortConfig.key] ?? 0;
+        const bValue = b[sortConfig.key] ?? 0;
+        if (sortConfig.direction === 'asc') return aValue > bValue ? 1 : -1;
+        return aValue < bValue ? 1 : -1;
+      });
+
+      return { mapName, stats: sortedStats };
     });
-  }, [filteredData]);
+  }, [filteredData, sortConfig]);
+
+  const toggleSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
 
   // Piores Times (Bottom Rankings)
   const bottomRankings = useMemo(() => {
@@ -738,47 +755,71 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                 </div>
             </div>
         ) : activeTab === 'mapRanking' ? (
-            <div className="space-y-12 animate-in fade-in duration-500">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     {mapRankings.map((m, idx) => (
-                        <div key={idx} className="bg-[#1a1a1a] rounded-3xl border border-gray-800 overflow-hidden shadow-2xl">
-                            <div className="bg-gradient-to-r from-blue-900/40 to-black p-6 border-b border-gray-800 flex justify-between items-center">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-blue-600 rounded-2xl text-white">
-                                        <MapIcon size={20} />
+                        <div key={idx} className="bg-[#1a1a1a] rounded-2xl border border-gray-800 overflow-hidden shadow-2xl flex flex-col">
+                            <div className="bg-gradient-to-r from-blue-900/20 to-black px-4 py-3 border-b border-gray-800 flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-600/20 rounded-xl text-blue-500">
+                                        <MapIcon size={16} />
                                     </div>
                                     <div>
-                                        <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">{m.mapName}</h3>
-                                        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Classificação Geral por Território</p>
+                                        <h3 className="text-lg font-black text-white italic uppercase tracking-tighter">{m.mapName}</h3>
+                                        <p className="text-[8px] text-gray-500 font-bold uppercase tracking-widest">Performance por Território</p>
                                     </div>
                                 </div>
                             </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead className="bg-black/40 text-[9px] text-gray-500 uppercase font-black tracking-widest">
+                            <div className="w-full">
+                                <table className="w-full text-left border-collapse table-fixed">
+                                    <thead className="bg-black/40 text-[8px] text-gray-500 uppercase font-black tracking-widest">
                                         <tr>
-                                            <th className="px-6 py-4 w-12 text-center">#</th>
-                                            <th className="px-6 py-4">Equipe</th>
-                                            <th className="px-6 py-4 text-center">PTS</th>
-                                            <th className="px-6 py-4 text-center">B</th>
-                                            <th className="px-6 py-4 text-center">KILLS</th>
+                                            <th className="px-2 py-3 w-8 text-center">#</th>
+                                            <th className="px-2 py-3 w-32 cursor-pointer hover:text-white transition-colors" onClick={() => toggleSort('name')}>
+                                                Equipe {sortConfig.key === 'name' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
+                                            <th className="px-1 py-3 text-center cursor-pointer hover:text-white transition-colors" onClick={() => toggleSort('s')}>
+                                                S {sortConfig.key === 's' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
+                                            <th className="px-1 py-3 text-center cursor-pointer hover:text-white transition-colors" onClick={() => toggleSort('pts')}>
+                                                PTS {sortConfig.key === 'pts' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
+                                            <th className="px-1 py-3 text-center cursor-pointer hover:text-white transition-colors" onClick={() => toggleSort('b')}>
+                                                B {sortConfig.key === 'b' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
+                                            <th className="px-1 py-3 text-center cursor-pointer hover:text-white transition-colors" onClick={() => toggleSort('abts')}>
+                                                K {sortConfig.key === 'abts' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
+                                            <th className="px-1 py-3 text-center cursor-pointer hover:text-white transition-colors text-[7px]" onClick={() => toggleSort('avgPts')}>
+                                                AVG P {sortConfig.key === 'avgPts' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
+                                            <th className="px-1 py-3 text-center cursor-pointer hover:text-white transition-colors text-[7px]" onClick={() => toggleSort('avgAbts')}>
+                                                AVG K {sortConfig.key === 'avgAbts' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
+                                            <th className="px-1 py-3 text-center cursor-pointer hover:text-white transition-colors text-[7px]" onClick={() => toggleSort('avgPtsc')}>
+                                                AVG POS {sortConfig.key === 'avgPtsc' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+                                            </th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-800/50">
-                                        {m.stats.slice(0, 12).map((team, tIdx) => (
+                                    <tbody className="divide-y divide-gray-800/30">
+                                        {m.stats.slice(0, 10).map((team, tIdx) => (
                                             <tr key={tIdx} className="hover:bg-white/5 transition-colors cursor-pointer" onClick={() => setFilters(prev => ({...prev, team: [team.name]}))}>
-                                                <td className="px-6 py-4 text-center font-mono text-[10px] text-gray-600">{tIdx + 1}</td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 bg-black rounded-lg border border-gray-800 p-1 flex items-center justify-center">
-                                                            {team.image ? <img src={team.image} alt={team.name} className="w-full h-full object-contain" /> : <Shield size={14} className="text-gray-700" />}
+                                                <td className="px-2 py-2 text-center font-mono text-[9px] text-gray-600">{tIdx + 1}</td>
+                                                <td className="px-2 py-2">
+                                                    <div className="flex items-center gap-2 overflow-hidden">
+                                                        <div className="w-5 h-5 bg-black rounded border border-gray-800 p-0.5 flex-shrink-0">
+                                                            {team.image ? <img src={team.image} alt={team.name} className="w-full h-full object-contain" /> : <Shield size={10} className="text-gray-700" />}
                                                         </div>
-                                                        <span className="text-xs font-black text-white uppercase italic">{team.name}</span>
+                                                        <span className="text-[9px] font-black text-white uppercase italic truncate">{team.name}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-center font-black text-yellow-500 italic text-sm">{team.pts}</td>
-                                                <td className="px-6 py-4 text-center font-black text-orange-500 italic text-sm">{team.b}</td>
-                                                <td className="px-6 py-4 text-center font-black text-red-500 italic text-sm">{team.abts}</td>
+                                                <td className="px-1 py-2 text-center font-black text-gray-500 italic text-[10px]">{team.s}</td>
+                                                <td className="px-1 py-2 text-center font-black text-yellow-500 italic text-[10px]">{team.pts}</td>
+                                                <td className="px-1 py-2 text-center font-black text-orange-500 italic text-[10px]">{team.b}</td>
+                                                <td className="px-1 py-2 text-center font-black text-red-500 italic text-[10px]">{team.abts}</td>
+                                                <td className="px-1 py-2 text-center font-black text-yellow-400/80 italic text-[9px]">{team.avgPts}</td>
+                                                <td className="px-1 py-2 text-center font-black text-red-400/80 italic text-[9px]">{team.avgAbts}</td>
+                                                <td className="px-1 py-2 text-center font-black text-blue-400/80 italic text-[9px]">{team.avgPtsc}</td>
                                             </tr>
                                         ))}
                                     </tbody>
