@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardData, TeamStats, PlayerData, KillFeed, MatchDetails } from '../types';
 import { calculateTeamStats } from '../services/dataService';
-import { Shield, TrendingUp, Users, ArrowLeft, Target, Award, Crosshair, Map as MapIcon, BarChart3, Star, Disc, Activity, Layers, Zap, ListOrdered, Trophy, ChevronDown, Medal, CheckCircle2, Flame, TrendingDown, LayoutGrid } from 'lucide-react';
+import { Shield, TrendingUp, Users, ArrowLeft, Target, Award, Crosshair, Map as MapIcon, BarChart3, Star, Disc, Activity, Layers, Zap, ListOrdered, Trophy, ChevronDown, Medal, CheckCircle2, Flame, TrendingDown, LayoutGrid, MapPin } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, LabelList, PieChart, Pie, Cell, Legend, CartesianGrid, YAxis } from 'recharts';
 import FilterBar from '../components/FilterBar';
 
@@ -39,7 +39,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
   const [selectedDrop, setSelectedDrop] = useState<string | null>(null);
   const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'mapRanking' | 'bottomRanking' | 'mapAnalysis'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'mapRanking' | 'bottomRanking' | 'mapAnalysis' | 'safeAnalysis'>('gallery');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'pts', direction: 'desc' });
 
   useEffect(() => {
@@ -359,6 +359,28 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     return { analysis, totalsPerDrop };
   }, [data.details]);
 
+  // Análise de Fechamento de Safe (Onde Fechou)
+  const safeAnalysisData = useMemo(() => {
+    const analysis: Record<string, { totals: number, locals: Record<string, number> }> = {};
+    const seenMatches = new Set<string>();
+
+    data.details.forEach(d => {
+      const matchKey = `${d.CONFRONTO}-${d.RD}-${d.Q}`;
+      if (seenMatches.has(matchKey)) return;
+      seenMatches.add(matchKey);
+
+      const map = d.MAPA;
+      const local = d.ONDE_FECHOU;
+      if (!map || !local) return;
+
+      if (!analysis[map]) analysis[map] = { totals: 0, locals: {} };
+      analysis[map].locals[local] = (analysis[map].locals[local] || 0) + 1;
+      analysis[map].totals++;
+    });
+
+    return analysis;
+  }, [data.details]);
+
   const handlePlayerClick = (playerName: string) => {
     navigate('/players', { state: { player: playerName } });
   };
@@ -396,6 +418,12 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                             className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'mapAnalysis' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
                         >
                             <BarChart3 size={14} /> Análise Mapas
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('safeAnalysis')}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'safeAnalysis' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            <MapPin size={14} /> Onde Fechou
                         </button>
                     </div>
                 )}
@@ -893,6 +921,67 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                             </div>
                         );
                     })}
+                </div>
+            </div>
+        ) : activeTab === 'safeAnalysis' ? (
+            <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {Object.entries(safeAnalysisData).map(([mapName, entry]) => {
+                        const data = entry as { totals: number, locals: Record<string, number> };
+                        const sortedLocals = Object.entries(data.locals).sort((a, b) => (b[1] as number) - (a[1] as number));
+                        
+                        return (
+                            <div key={mapName} className="bg-[#1a1a1a] rounded-3xl border border-gray-800 overflow-hidden shadow-xl flex flex-col">
+                                <div className="bg-gradient-to-r from-red-500/10 to-transparent p-5 border-b border-gray-800 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center">
+                                            <Target size={18} />
+                                        </div>
+                                        <h3 className="text-sm font-black text-white uppercase tracking-widest">{mapName}</h3>
+                                    </div>
+                                    <span className="text-[10px] text-gray-500 font-bold uppercase">{data.totals} FECHAMENTOS</span>
+                                </div>
+                                <div className="p-6 space-y-4 flex-grow">
+                                    {sortedLocals.map(([local, count]) => {
+                                        const percentage = data.totals > 0 ? (((count as number) / data.totals) * 100).toFixed(1) : "0.0";
+                                        return (
+                                            <div key={local} className="space-y-2">
+                                                <div className="flex justify-between items-end">
+                                                    <span className="text-xs font-black text-white uppercase italic">{local}</span>
+                                                    <div className="text-right">
+                                                        <span className="text-[10px] text-red-500 font-black">{percentage}%</span>
+                                                        <span className="text-[9px] text-gray-500 font-bold ml-2 uppercase">({count}x)</span>
+                                                    </div>
+                                                </div>
+                                                <div className="h-1.5 bg-black rounded-full overflow-hidden border border-white/5">
+                                                    <div 
+                                                        className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full" 
+                                                        style={{ width: `${percentage}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="p-4 bg-black/40 border-t border-gray-800/50">
+                                    <div className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                                        <MapPin size={12} className="text-red-500" />
+                                        Hot Zone: 
+                                        <span className="text-white ml-auto italic">
+                                            {sortedLocals[0][0]}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {Object.keys(safeAnalysisData).length === 0 && (
+                        <div className="col-span-full py-20 text-center">
+                            <p className="text-gray-500 font-black uppercase tracking-widest italic animate-pulse">
+                                Nenhum dado de fechamento de safe encontrado...
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         ) : activeTab === 'bottomRanking' ? (

@@ -131,7 +131,8 @@ export const fetchDashboardData = async (): Promise<DashboardData> => {
         ABTS: getVal(row, ['ABTS', 'ABATES']) || '0',
         B: getVal(row, ['B', 'BOOYAH', 'VITORIA']) || '0',
         S: getVal(row, ['S', 'PARTIDA', 'QUEDAS']) || '1',
-        Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || '1'
+        Q: getVal(row, ['Q', 'QUEDA', 'Queda', 'PARTIDA']) || '1',
+        ONDE_FECHOU: getVal(row, ['ONDE FECHOU', 'Onde Fechou', 'ONDEFECHOU', 'LOCAL FECHAMENTO'])
     })).filter(d => d.TIME);
     
     // Parse Loadouts (Fonte Fato)

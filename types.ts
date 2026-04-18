@@ -43,6 +43,7 @@ export interface MatchDetails {
   B: string;
   S: string;
   Q: string; 
+  ONDE_FECHOU?: string;
 }
 
 export interface CharacterData {
