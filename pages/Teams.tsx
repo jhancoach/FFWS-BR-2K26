@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardData, TeamStats, PlayerData, KillFeed, MatchDetails } from '../types';
 import { calculateTeamStats } from '../services/dataService';
-import { Shield, TrendingUp, Users, ArrowLeft, Target, Award, Crosshair, Map as MapIcon, BarChart3, Star, Disc, Activity, Layers, Zap, ListOrdered, Trophy, ChevronDown, Medal, CheckCircle2, Flame, TrendingDown, LayoutGrid, MapPin } from 'lucide-react';
+import { Shield, TrendingUp, Users, ArrowLeft, Target, Award, Crosshair, Map as MapIcon, BarChart3, Star, Disc, Activity, Layers, Zap, ListOrdered, Trophy, ChevronDown, Medal, CheckCircle2, Flame, TrendingDown, LayoutGrid, MapPin, Scale } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, LabelList, PieChart, Pie, Cell, Legend, CartesianGrid, YAxis } from 'recharts';
 import FilterBar from '../components/FilterBar';
 
@@ -39,8 +39,47 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
   const [selectedDrop, setSelectedDrop] = useState<string | null>(null);
   const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'mapRanking' | 'bottomRanking' | 'mapAnalysis' | 'safeAnalysis'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'mapRanking' | 'bottomRanking' | 'mapAnalysis' | 'safeAnalysis' | 'comparison'>('gallery');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'pts', direction: 'desc' });
+  const [compareTeamB, setCompareTeamB] = useState<string | null>(null);
+
+  const normalize = (val: string | undefined) => (val || '').trim().toUpperCase();
+
+  // Análise de Comparação por Mapa
+  const comparisonMapStats = useMemo(() => {
+    if (!filters.team[0] || !compareTeamB) return [];
+    
+    const teamA = filters.team[0];
+    const teamB = compareTeamB;
+    
+    const maps = Array.from(new Set(data.details.map(d => d.MAPA))).filter(Boolean) as string[];
+    
+    return maps.map(mapName => {
+      const mapDetails = data.details.filter(d => normalize(d.MAPA) === normalize(mapName));
+      
+      // Filtros Globais (Rodada, Queda, Confronto) para os detalhes do mapa
+      const mapFilteredDetails = mapDetails.filter(d => {
+          if (filters.rodada.length > 0 && !filters.rodada.some(r => normalize(r) === normalize(d.RD))) return false;
+          if (filters.queda.length > 0 && !filters.queda.some(q => normalize(q) === normalize(d.Q))) return false;
+          if (filters.confrontation.length > 0 && !filters.confrontation.some(c => normalize(c) === normalize(d.CONFRONTO))) return false;
+          return true;
+      });
+
+      const statsA = calculateTeamStats({ ...data, details: mapFilteredDetails.filter(d => normalize(d.TIME) === normalize(teamA)) })[0] || {
+        pts: 0, ptsc: 0, abts: 0, s: 0, avgPts: 0, avgAbts: 0, avgPtsc: 0
+      };
+      
+      const statsB = calculateTeamStats({ ...data, details: mapFilteredDetails.filter(d => normalize(d.TIME) === normalize(teamB)) })[0] || {
+        pts: 0, ptsc: 0, abts: 0, s: 0, avgPts: 0, avgAbts: 0, avgPtsc: 0
+      };
+      
+      return {
+        mapName,
+        teamA: statsA,
+        teamB: statsB
+      };
+    });
+  }, [data, filters, compareTeamB]);
 
   useEffect(() => {
       if (location.state?.team) {
@@ -48,8 +87,6 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
           window.history.replaceState({}, document.title);
       }
   }, [location.state]);
-
-  const normalize = (val: string | undefined) => (val || '').trim().toUpperCase();
 
   const filteredData = useMemo(() => {
     const filteredDetails = data.details.filter(d => {
@@ -393,7 +430,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
             <FilterBar filters={filters} setFilters={setFilters} options={filterOptions} />
             
             <div className="flex items-center gap-4">
-                {!selectedTeamName && (
+                {(!selectedTeamName || activeTab === 'comparison') && (
                     <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
                         <button 
                             onClick={() => setActiveTab('gallery')}
@@ -425,10 +462,16 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                         >
                             <MapPin size={14} /> Onde Fechou
                         </button>
+                        <button 
+                            onClick={() => setActiveTab('comparison')}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'comparison' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            <Scale size={14} /> Comparar
+                        </button>
                     </div>
                 )}
 
-                {selectedTeamName && (
+                {selectedTeamName && activeTab !== 'comparison' && (
                     <button 
                         onClick={() => {
                             if (selectedMap) setSelectedMap(null);
@@ -444,7 +487,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
             </div>
         </div>
 
-        {selectedTeamName && selectedTeamStats ? (
+        {selectedTeamName && selectedTeamStats && activeTab !== 'comparison' ? (
             <div className="space-y-8 animate-in fade-in duration-500 pb-10">
                 {/* Header do Time */}
                 <div className="bg-[#1a1a1a] rounded-3xl p-8 border border-gray-800 shadow-2xl relative overflow-hidden bg-gradient-to-br from-[#1a1a1a] to-black">
@@ -479,6 +522,12 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                                  <StatBadge label="VITÓRIAS" value={selectedTeamStats.b} color="text-orange-500" />
                                  <StatBadge label="KILLS" value={selectedTeamStats.abts} color="text-red-500" />
                                  <StatBadge label="MÉDIA EQUIPE" value={selectedTeamStats.avgAbts} color="text-blue-500" />
+                                 <button 
+                                     onClick={() => setActiveTab('comparison')}
+                                     className="flex items-center gap-2 px-5 py-3 bg-white/5 hover:bg-yellow-500 hover:text-black text-yellow-500 hover:scale-105 rounded-2xl transition-all text-[10px] font-black uppercase tracking-widest border border-white/5"
+                                 >
+                                     <Scale size={16} /> Comparar este Time
+                                 </button>
                              </div>
                              
                              <div className="mt-6 max-w-md">
@@ -983,6 +1032,259 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                         </div>
                     )}
                 </div>
+            </div>
+        ) : activeTab === 'comparison' ? (
+            <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="flex flex-col md:flex-row gap-6 items-center justify-center">
+                     {/* Team A Selection */}
+                     <div className="w-full md:w-80 p-6 bg-black/40 rounded-3xl border border-white/5 space-y-4">
+                         <label className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] block">Equipe A</label>
+                         <select 
+                             value={filters.team[0] || ''} 
+                             onChange={(e) => setFilters(prev => ({...prev, team: e.target.value ? [e.target.value] : []}))}
+                             className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white text-xs font-black uppercase tracking-widest outline-none focus:border-yellow-500 transition-all"
+                         >
+                             <option value="" disabled>Selecione...</option>
+                             {filterOptions.teams.map(t => <option key={t} value={t}>{t}</option>)}
+                         </select>
+                     </div>
+
+                     <div className="relative group">
+                         <div className="absolute -inset-4 bg-yellow-500/20 rounded-full blur-xl group-hover:bg-yellow-500/30 transition-all animate-pulse" />
+                         <div className="relative w-14 h-14 bg-yellow-500 rounded-full flex items-center justify-center text-black font-black italic shadow-2xl z-10 border-4 border-black text-xl">VS</div>
+                     </div>
+
+                     {/* Team B Selection */}
+                     <div className="w-full md:w-80 p-6 bg-black/40 rounded-3xl border border-white/5 space-y-4">
+                         <label className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] block">Equipe B</label>
+                         <select 
+                             value={compareTeamB || ''} 
+                             onChange={(e) => setCompareTeamB(e.target.value || null)}
+                             className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white text-xs font-black uppercase tracking-widest outline-none focus:border-yellow-500 transition-all"
+                         >
+                             <option value="" disabled>Selecione...</option>
+                             {filterOptions.teams.map(t => <option key={t} value={t}>{t}</option>)}
+                         </select>
+                     </div>
+                </div>
+
+                {filters.team[0] && compareTeamB ? (
+                    <div className="space-y-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {[filters.team[0], compareTeamB].map((teamName, idx) => {
+                                const stats = filteredTeamStats.find(s => s.name === teamName);
+                                if (!stats) return null;
+                                return (
+                                    <div key={teamName} className={`bg-[#1a1a1a] rounded-[40px] p-8 border ${idx === 0 ? 'border-yellow-500/20' : 'border-blue-500/20'} shadow-2xl relative overflow-hidden group`}>
+                                        <div className={`absolute top-0 right-0 w-64 h-64 ${idx === 0 ? 'bg-yellow-500/5' : 'bg-blue-500/5'} blur-[100px] -mr-32 -mt-32 rounded-full`} />
+                                        
+                                        <div className="flex items-center gap-6 mb-12 relative">
+                                            <div className={`w-24 h-24 bg-black rounded-3xl flex items-center justify-center border ${idx === 0 ? 'border-yellow-500/40' : 'border-blue-500/40'} p-4 shadow-2xl group-hover:scale-105 transition-transform`}>
+                                                {stats.image ? <img src={stats.image} alt={stats.name} className="w-full h-full object-contain" /> : <Shield className="text-gray-800" size={40} />}
+                                            </div>
+                                            <div>
+                                                <h3 className="text-4xl font-black italic text-white uppercase tracking-tighter mb-2">{stats.name}</h3>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`px-4 py-1.5 rounded-full ${idx === 0 ? 'bg-yellow-500 text-black' : 'bg-blue-500 text-white'} text-[10px] font-black uppercase tracking-widest`}>
+                                                        {stats.grupo || 'SEM GRUPO'}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">{stats.s} QUEDAS JOGADAS</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-4 mb-8">
+                                            <div className="bg-black/40 p-4 rounded-3xl border border-white/5 text-center">
+                                                <span className="block text-[8px] text-gray-500 font-bold uppercase mb-1">PTS TOTAL</span>
+                                                <span className={`text-2xl font-black italic ${idx === 0 ? 'text-yellow-500' : 'text-blue-400'}`}>{stats.pts}</span>
+                                            </div>
+                                            <div className="bg-black/40 p-4 rounded-3xl border border-white/5 text-center">
+                                                <span className="block text-[8px] text-gray-500 font-bold uppercase mb-1">BOOYAHS</span>
+                                                <span className={`text-2xl font-black italic ${idx === 0 ? 'text-orange-500' : 'text-blue-400'}`}>{stats.b}</span>
+                                            </div>
+                                            <div className="bg-black/40 p-4 rounded-3xl border border-white/5 text-center">
+                                                <span className="block text-[8px] text-gray-500 font-bold uppercase mb-1">KILLS</span>
+                                                <span className="text-2xl font-black italic text-red-500">{stats.abts}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest px-2">
+                                                <span className="text-gray-500">Média Pts/Queda</span>
+                                                <span className="text-white">{stats.avgPts}</span>
+                                            </div>
+                                            <div className="h-2 bg-black rounded-full overflow-hidden border border-white/5">
+                                                <div className={`h-full ${idx === 0 ? 'bg-yellow-500' : 'bg-blue-500'} rounded-full`} style={{ width: `${Math.min((stats.avgPts / 20) * 100, 100)}%` }} />
+                                            </div>
+
+                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest px-2 pt-2">
+                                                <span className="text-gray-500">Média Kills/Queda</span>
+                                                <span className="text-white">{stats.avgAbts}</span>
+                                            </div>
+                                            <div className="h-2 bg-black rounded-full overflow-hidden border border-white/5">
+                                                <div className={`h-full bg-red-500 rounded-full`} style={{ width: `${Math.min((stats.avgAbts / 15) * 100, 100)}%` }} />
+                                            </div>
+                                            
+                                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest px-2 pt-2">
+                                                <span className="text-gray-500">% Pontos por Posição</span>
+                                                <span className="text-white">{stats.percentPos}%</span>
+                                            </div>
+                                            <div className="h-2 bg-black rounded-full overflow-hidden border border-white/5">
+                                                <div className="h-full bg-orange-500 rounded-full" style={{ width: `${stats.percentPos}%` }} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        
+                        {/* Comparison per Map */}
+                        <div className="space-y-6">
+                            <div className="flex flex-col items-center">
+                                <div className="h-0.5 w-24 bg-gradient-to-r from-transparent via-gray-700 to-transparent mb-4" />
+                                <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.5em] italic">Comparativo por Território</h3>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {comparisonMapStats.map((m, idx) => (
+                                    <div key={idx} className="bg-[#1a1a1a] rounded-3xl border border-gray-800 overflow-hidden shadow-xl flex flex-col">
+                                        <div className="bg-black/40 p-4 border-b border-gray-800 flex justify-center items-center gap-3">
+                                            <MapIcon size={14} className="text-gray-500" />
+                                            <span className="text-xs font-black text-white uppercase italic tracking-widest">{m.mapName}</span>
+                                        </div>
+                                        <div className="p-5 flex-grow">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="text-left">
+                                                    <span className="text-[8px] text-yellow-500 font-black block leading-none mb-1">TEAM A</span>
+                                                    <span className="text-[10px] text-white font-black truncate max-w-[80px] block">{filters.team[0]}</span>
+                                                </div>
+                                                <div className="w-8 h-8 rounded-full bg-gray-900 border border-gray-800 flex items-center justify-center text-[8px] font-black text-gray-500">VS</div>
+                                                <div className="text-right">
+                                                    <span className="text-[8px] text-blue-500 font-black block leading-none mb-1">TEAM B</span>
+                                                    <span className="text-[10px] text-white font-black truncate max-w-[80px] block">{compareTeamB}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                {/* PTS Comparison */}
+                                                <div className="space-y-1">
+                                                    <div className="flex justify-between text-[8px] font-black uppercase text-gray-500">
+                                                        <span>PTS Total: {m.teamA.pts}</span>
+                                                        <span>{m.teamB.pts}</span>
+                                                    </div>
+                                                    <div className="h-1.5 bg-black rounded-full overflow-hidden flex">
+                                                        <div className="h-full bg-yellow-500" style={{ width: `${(m.teamA.pts + m.teamB.pts) > 0 ? (m.teamA.pts / (m.teamA.pts + m.teamB.pts)) * 100 : 50}%` }} />
+                                                        <div className="h-full bg-blue-500" style={{ width: `${(m.teamA.pts + m.teamB.pts) > 0 ? (m.teamB.pts / (m.teamA.pts + m.teamB.pts)) * 100 : 50}%` }} />
+                                                    </div>
+                                                </div>
+
+                                                {/* KILLS Comparison */}
+                                                <div className="space-y-1">
+                                                    <div className="flex justify-between text-[8px] font-black uppercase text-gray-500 border-t border-white/5 pt-1">
+                                                        <span>Kills: {m.teamA.abts}</span>
+                                                        <span>{m.teamB.abts}</span>
+                                                    </div>
+                                                    <div className="h-1 bg-black rounded-full overflow-hidden flex">
+                                                        <div className="h-full bg-red-600" style={{ width: `${(m.teamA.abts + m.teamB.abts) > 0 ? (m.teamA.abts / (m.teamA.abts + m.teamB.abts)) * 100 : 50}%` }} />
+                                                        <div className="h-full bg-red-400" style={{ width: `${(m.teamA.abts + m.teamB.abts) > 0 ? (m.teamB.abts / (m.teamA.abts + m.teamB.abts)) * 100 : 50}%` }} />
+                                                    </div>
+                                                </div>
+
+                                                {/* POS PTS Comparison */}
+                                                <div className="space-y-1">
+                                                    <div className="flex justify-between text-[8px] font-black uppercase text-gray-500 border-t border-white/5 pt-1">
+                                                        <span>Pts Pos: {m.teamA.ptsc}</span>
+                                                        <span>{m.teamB.ptsc}</span>
+                                                    </div>
+                                                    <div className="h-1 bg-black rounded-full overflow-hidden flex">
+                                                        <div className="h-full bg-orange-600" style={{ width: `${(m.teamA.ptsc + m.teamB.ptsc) > 0 ? (m.teamA.ptsc / (m.teamA.ptsc + m.teamB.ptsc)) * 100 : 50}%` }} />
+                                                        <div className="h-full bg-orange-400" style={{ width: `${(m.teamA.ptsc + m.teamB.ptsc) > 0 ? (m.teamB.ptsc / (m.teamA.ptsc + m.teamB.ptsc)) * 100 : 50}%` }} />
+                                                    </div>
+                                                </div>
+
+                                                {/* Averages Grid */}
+                                                <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-gray-800">
+                                                    <div className="bg-black/40 rounded-xl p-2 text-center">
+                                                        <span className="text-[7px] text-gray-500 font-bold block mb-1">AVG PTS (A vs B)</span>
+                                                        <div className="flex justify-center items-center gap-1">
+                                                            <span className="text-[9px] font-black text-yellow-500 italic">{m.teamA.avgPts}</span>
+                                                            <span className="text-[7px] text-gray-700">|</span>
+                                                            <span className="text-[9px] font-black text-blue-400 italic">{m.teamB.avgPts}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-black/40 rounded-xl p-2 text-center">
+                                                        <span className="text-[7px] text-gray-500 font-bold block mb-1">AVG KLLS (A vs B)</span>
+                                                        <div className="flex justify-center items-center gap-1">
+                                                            <span className="text-[9px] font-black text-red-500 italic">{m.teamA.avgAbts}</span>
+                                                            <span className="text-[7px] text-gray-700">|</span>
+                                                            <span className="text-[9px] font-black text-red-400 italic">{m.teamB.avgAbts}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Comparison Table for detailed metrics */}
+                        <div className="bg-[#1a1a1a] rounded-[32px] border border-gray-800 overflow-hidden shadow-2xl no-print">
+                            <div className="bg-black/40 px-8 py-6 border-b border-gray-800 flex items-center justify-between">
+                                <h3 className="text-xs font-black text-white uppercase tracking-[0.3em]">Métricas Diretas</h3>
+                                <div className="flex gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <tbody className="divide-y divide-gray-800/30">
+                                        {[
+                                            { label: 'Total de Pontos', key: 'pts', color: 'text-yellow-500' },
+                                            { label: 'Média de Pontos', key: 'avgPts', color: 'text-white' },
+                                            { label: 'Total de Booyahs', key: 'b', color: 'text-orange-500' },
+                                            { label: 'Total de Abates', key: 'abts', color: 'text-red-500' },
+                                            { label: 'Média de Abates', key: 'avgAbts', color: 'text-white' },
+                                            { label: 'Média Pts Posição', key: 'avgPtsc', color: 'text-blue-400' },
+                                            { label: '% Abates no Score', key: 'percentAbts', color: 'text-gray-400' },
+                                            { label: '% Posição no Score', key: 'percentPos', color: 'text-gray-400' },
+                                        ].map((row, rIdx) => {
+                                            const valA = filteredTeamStats.find(s => s.name === filters.team[0])?.[row.key as keyof TeamStats] as number || 0;
+                                            const valB = filteredTeamStats.find(s => s.name === compareTeamB)?.[row.key as keyof TeamStats] as number || 0;
+                                            const isBetterA = valA > valB;
+                                            const isBetterB = valB > valA;
+
+                                            return (
+                                                <tr key={rIdx} className="hover:bg-white/[0.02] transition-colors">
+                                                    <td className={`px-8 py-4 text-center font-black ${isBetterA ? 'text-yellow-500 scale-110' : 'text-gray-600'} transition-all`}>
+                                                        {valA}{(row.key.includes('percent')) ? '%' : ''}
+                                                    </td>
+                                                    <td className="px-8 py-4 text-center text-[10px] font-black text-white uppercase tracking-widest bg-black/20 italic">
+                                                        {row.label}
+                                                    </td>
+                                                    <td className={`px-8 py-4 text-center font-black ${isBetterB ? 'text-blue-500 scale-110' : 'text-gray-600'} transition-all`}>
+                                                        {valB}{(row.key.includes('percent')) ? '%' : ''}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-[#1a1a1a] rounded-[50px] border-2 border-dashed border-gray-800 py-32 flex flex-col items-center justify-center space-y-6">
+                         <div className="w-20 h-20 bg-gray-900 rounded-full flex items-center justify-center text-gray-700">
+                             <Scale size={40} />
+                         </div>
+                         <div className="text-center">
+                             <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter mb-2">Modo de Comparação</h3>
+                             <p className="text-sm text-gray-500 font-medium max-w-xs mx-auto">Selecione duas equipes nos campos acima para comparar estatísticas head-to-head.</p>
+                         </div>
+                    </div>
+                )}
             </div>
         ) : activeTab === 'bottomRanking' ? (
             <div className="space-y-12 animate-in fade-in duration-500">
