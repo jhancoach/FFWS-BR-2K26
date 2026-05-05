@@ -160,6 +160,8 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
         aliadosRevividos: number;
         mvp: number;
         matches: number; 
+        zeroKills: number;
+        withKills: number;
         team: string;
         mapStats: Map<string, { kills: number, matches: number }>;
     }>();
@@ -184,6 +186,8 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                 gelos, gelosDestruidos, reviveu, aliadosRevividos,
                 mvp,
                 matches: 1, team: p.TIME,
+                zeroKills: kills === 0 ? 1 : 0,
+                withKills: kills > 0 ? 1 : 0,
                 mapStats: ms
             });
         } else {
@@ -199,6 +203,8 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
             s.aliadosRevividos += aliadosRevividos;
             s.mvp += mvp;
             s.matches += 1;
+            s.zeroKills += kills === 0 ? 1 : 0;
+            s.withKills += kills > 0 ? 1 : 0;
 
             const ms = s.mapStats.get(mapName) || { kills: 0, matches: 0 };
             ms.kills += kills;
@@ -267,6 +273,10 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
             aliadosRevividos: stat.aliadosRevividos,
             mvp: stat.mvp,
             matches: stat.matches,
+            zeroKills: stat.zeroKills,
+            withKills: stat.withKills,
+            zeroKillsPct: stat.matches > 0 ? ((stat.zeroKills / stat.matches) * 100).toFixed(1) : '0.0',
+            withKillsPct: stat.matches > 0 ? ((stat.withKills / stat.matches) * 100).toFixed(1) : '0.0',
             funcao: dim?.Funcao || 'N/A',
             funcao2: dim?.Funcao2 || 'N/A',
             avg: stat.matches > 0 ? (stat.kills / stat.matches).toFixed(2) : '0.00',
@@ -1062,6 +1072,18 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                                                 {rankingSort.field === 'avg' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
                                             </div>
                                         </th>
+                                        <th className="px-2 py-4 text-center text-green-400 border-b border-gray-800 cursor-pointer hover:text-green-300 transition-colors" onClick={() => handleRankingSort('withKills')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                Q. C/ KILL
+                                                {rankingSort.field === 'withKills' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
+                                        <th className="px-2 py-4 text-center text-red-500 border-b border-gray-800 cursor-pointer hover:text-red-400 transition-colors" onClick={() => handleRankingSort('zeroKills')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                Q. ZERO
+                                                {rankingSort.field === 'zeroKills' && (rankingSort.direction === 'desc' ? <ChevronDown size={8} /> : <ChevronUp size={8} />)}
+                                            </div>
+                                        </th>
                                         <th className="px-2 py-4 text-center border-b border-gray-800 cursor-pointer hover:text-white transition-colors" onClick={() => handleRankingSort('damage')}>
                                             <div className="flex items-center justify-center gap-1">
                                                 DMG
@@ -1213,6 +1235,18 @@ const Players: React.FC<PlayersProps> = ({ data }) => {
                                                 </div>
                                             </td>
                                             <td className="px-2 py-3 text-center text-yellow-500 font-black italic bg-yellow-500/5">{player.avg}</td>
+                                            <td className="px-2 py-3 text-center w-24">
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[11px] font-black text-green-400">{player.withKills}</span>
+                                                    <span className="text-[8px] text-gray-500 font-bold">({player.withKillsPct}%)</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-2 py-3 text-center w-24 border-r border-gray-800/30">
+                                                <div className="flex flex-col items-center">
+                                                    <span className="text-[11px] font-black text-red-500">{player.zeroKills}</span>
+                                                    <span className="text-[8px] text-gray-500 font-bold">({player.zeroKillsPct}%)</span>
+                                                </div>
+                                            </td>
                                             <td className="px-2 py-3 text-center text-gray-300 font-mono">{player.damage}</td>
                                             <td className="px-2 py-3 text-center text-yellow-500 font-black italic bg-yellow-500/5">{player.avgDmg}</td>
                                             <td className="px-2 py-3 text-center text-blue-400 font-black">{player.assists}</td>
@@ -1522,6 +1556,11 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
         const totalAssists = records.reduce((acc: number, r: PlayerData) => acc + parseNumber(r.Assistencias), 0);
         
         const totalMatches = records.length; 
+        const zeroKillsMatches = records.filter((r: PlayerData) => parseNumber(r.Abates) === 0).length;
+        const withKillsMatches = records.filter((r: PlayerData) => parseNumber(r.Abates) > 0).length;
+        const zeroKillsPct = totalMatches > 0 ? ((zeroKillsMatches / totalMatches) * 100).toFixed(1) : '0.0';
+        const withKillsPct = totalMatches > 0 ? ((withKillsMatches / totalMatches) * 100).toFixed(1) : '0.0';
+
         const team = records[0]?.TIME || data.players.find(p => normalize(p.PLAYER) === normalize(playerName))?.TIME || 'N/A';
         const teamImg = data.teamsReference.find(t => normalize(t.TIME) === normalize(team))?.IMG;
 
@@ -1569,6 +1608,10 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
             knocks: totalKnocks,
             assists: totalAssists,
             matches: totalMatches, 
+            zeroKillsMatches,
+            withKillsMatches,
+            zeroKillsPct,
+            withKillsPct,
             diff,
             avg: totalMatches > 0 ? (totalKills / totalMatches).toFixed(2) : '0.00', 
             avgDmg: totalMatches > 0 ? (totalDamage / totalMatches).toFixed(0) : '0',
@@ -1619,6 +1662,16 @@ const PlayerProfile = ({ data, playerName, filters, characters }: any) => {
                 <div className="flex flex-wrap justify-center gap-4 relative z-10">
                     <MetricCard label="Abates" value={stats.kills} color="text-red-500" />
                     <MetricCard label="Salas" value={stats.matches} color="text-blue-400" />
+                    <MetricCard 
+                        label="Q. C/ Kill" 
+                        value={`${stats.withKillsMatches} (${stats.withKillsPct}%)`} 
+                        color="text-green-500" 
+                    />
+                    <MetricCard 
+                        label="Q. Zerada" 
+                        value={`${stats.zeroKillsMatches} (${stats.zeroKillsPct}%)`} 
+                        color="text-red-500" 
+                    />
                     <MetricCard 
                         label="Saldo" 
                         value={stats.diff > 0 ? `+${stats.diff}` : stats.diff} 
