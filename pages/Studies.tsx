@@ -95,8 +95,9 @@ const Studies: React.FC = () => {
     const handleLogin = async () => {
         try {
             await signInWithPopup(auth, new GoogleAuthProvider());
-        } catch (error) {
+        } catch (error: any) {
             console.error("Login failed", error);
+            alert("Erro ao abrir login: " + error.message + "\nSe o navegador bloqueou o popup, por favor permita popups para este site ou tente abrir em uma nova guia.");
         }
     };
 
