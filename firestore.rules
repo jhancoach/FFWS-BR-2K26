@@ -6,11 +6,11 @@ service cloud.firestore {
     }
     
     function isSignedIn() {
-      return request.auth != null && request.auth.token.email_verified == true;
+      return request.auth != null;
     }
     
     function isAdmin() {
-      return isSignedIn() && request.auth.token.email == 'jhanmedeiros@gmail.com';
+      return isSignedIn() && request.auth.token.email == 'admin@ffws.com';
     }
     
     function isValidId(id) { 

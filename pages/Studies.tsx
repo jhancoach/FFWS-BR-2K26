@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Map, Trash2, Crosshair, ZoomIn, ZoomOut, Move, LogIn, LogOut } from 'lucide-react';
+import { Map, Trash2, Crosshair, ZoomIn, ZoomOut, Move, LogIn, LogOut, X } from 'lucide-react';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { OperationType, handleFirestoreError } from '../utils/firestoreError';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut, User } from 'firebase/auth';
 
 const MAPS = [
     { id: 'BER', name: 'Bermuda', url: 'https://i.ibb.co/q34yct8f/BERMUDA-MAPA.png' },
@@ -33,6 +33,13 @@ const Studies: React.FC = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [user, setUser] = useState<User | null>(null);
+
+    // Auth Modal State
+    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [authEmail, setAuthEmail] = useState('');
+    const [authPassword, setAuthPassword] = useState('');
+    const [authError, setAuthError] = useState('');
+    const [authMessage, setAuthMessage] = useState('');
     
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -92,12 +99,32 @@ const Studies: React.FC = () => {
         }
     };
 
-    const handleLogin = async () => {
+    const handleEmailLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAuthError('');
+        setAuthMessage('');
+        
+        if (authPassword !== '221120') {
+            setAuthError("Senha incorreta!");
+            return;
+        }
+
+        const adminEmail = 'admin@ffws.com';
+        const securePassword = 'ffws_admin_secure_password_221120'; // This ensures the account password length requirement is met securely
+
         try {
-            await signInWithPopup(auth, new GoogleAuthProvider());
+            await signInWithEmailAndPassword(auth, adminEmail, securePassword);
+            setShowAuthModal(false);
+            setAuthPassword('');
         } catch (error: any) {
-            console.error("Login failed", error);
-            alert("Erro ao abrir login: " + error.message + "\nSe o navegador bloqueou o popup, por favor permita popups para este site ou tente abrir em uma nova guia.");
+            try {
+                // First time ever getting initialized
+                await createUserWithEmailAndPassword(auth, adminEmail, securePassword);
+                setShowAuthModal(false);
+                setAuthPassword('');
+            } catch (createError: any) {
+                setAuthError("Erro de sistema: " + createError.message);
+            }
         }
     };
 
@@ -165,17 +192,58 @@ const Studies: React.FC = () => {
     const maxCount = Math.max(...points.map(p => p.count), 1);
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500">
+        <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-500 relative">
+            
+            {showAuthModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-[#1a1a1a] border border-gray-800 p-8 rounded-2xl w-full max-w-md shadow-2xl relative">
+                        <button 
+                            onClick={() => setShowAuthModal(false)}
+                            className="absolute top-4 right-4 text-gray-500 hover:text-white"
+                        >
+                            <X size={20} />
+                        </button>
+                        <h2 className="text-2xl font-black uppercase italic tracking-widest text-white mb-6">Autenticação</h2>
+                        
+                        <form onSubmit={handleEmailLogin} className="space-y-4">
+                            <div>
+                                <label className="block text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Senha de Administrador</label>
+                                <input 
+                                    type="password" 
+                                    value={authPassword}
+                                    onChange={e => setAuthPassword(e.target.value)}
+                                    className="w-full bg-black/50 border border-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500"
+                                    required
+                                    autoFocus
+                                    placeholder="Digite a senha..."
+                                />
+                            </div>
+
+                            {authError && <div className="text-red-500 text-sm font-bold bg-red-500/10 p-3 rounded-lg border border-red-500/20">{authError}</div>}
+                            {authMessage && <div className="text-green-500 text-sm font-bold bg-green-500/10 p-3 rounded-lg border border-green-500/20">{authMessage}</div>}
+
+                            <div className="flex flex-col gap-3 pt-4">
+                                <button type="submit" className="w-full bg-yellow-500 text-black font-black uppercase tracking-widest py-3 rounded-lg hover:bg-yellow-400 transition-colors">
+                                    Entrar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                 <div>
                     <h1 className="text-3xl font-black uppercase italic tracking-widest text-white shadow-sm flex items-center gap-4">
                         Estudos de Safe
                         {user ? (
-                            <button onClick={() => signOut(auth)} className="text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-full flex items-center gap-2 transition-colors ml-4 shadow-sm border border-red-500/20">
-                                <LogOut size={12} /> Sair ({user.email})
-                            </button>
+                            <div className="flex items-center gap-2 ml-4">
+                                <button onClick={() => signOut(auth)} className="text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-full flex items-center gap-2 transition-colors shadow-sm border border-red-500/20">
+                                    <LogOut size={12} /> Sair (Admin)
+                                </button>
+                            </div>
                         ) : (
-                            <button onClick={handleLogin} className="text-xs font-bold text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20 px-3 py-1.5 rounded-full flex items-center gap-2 transition-colors ml-4 shadow-sm border border-yellow-500/20">
+                            <button onClick={() => setShowAuthModal(true)} className="text-xs font-bold text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20 px-3 py-1.5 rounded-full flex items-center gap-2 transition-colors ml-4 shadow-sm border border-yellow-500/20">
                                 <LogIn size={12} /> Login de Administrador
                             </button>
                         )}
