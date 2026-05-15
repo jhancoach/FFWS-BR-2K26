@@ -1,0 +1,21 @@
+{
+  "entities": {
+    "StudyMap": {
+      "title": "Study Map Data",
+      "description": "Represents the heatmap safe points for a map. The actual keys will be dynamic coordinates.",
+      "type": "object",
+      "properties": {
+        "mapId": {
+          "type": "string"
+        }
+      },
+      "required": ["mapId"]
+    }
+  },
+  "firestore": {
+    "/studies/{mapId}": {
+      "schema": "StudyMap",
+      "description": "Stores the heat map points for a single map"
+    }
+  }
+}

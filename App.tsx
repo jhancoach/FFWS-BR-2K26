@@ -6,6 +6,7 @@ import Leaderboard from './pages/Leaderboard';
 import Players from './pages/Players';
 import Teams from './pages/Teams';
 import KillFeedPage from './pages/KillFeedPage';
+import Studies from './pages/Studies';
 import Admin from './pages/Admin';
 import SplashScreen from './components/SplashScreen';
 import { fetchDashboardData, getAppConfig } from './services/dataService';
@@ -62,6 +63,7 @@ const App: React.FC = () => {
           <Route path="/players" element={<Players data={data} />} />
           <Route path="/teams" element={<Teams data={data} />} />
           <Route path="/killfeed" element={<KillFeedPage data={data} />} />
+          <Route path="/estudos" element={<Studies />} />
           <Route path="/admin" element={<Admin onRefresh={loadData} />} />
         </Routes>
       </Layout>
