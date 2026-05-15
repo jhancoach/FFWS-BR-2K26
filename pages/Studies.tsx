@@ -3,7 +3,6 @@ import { Map, Trash2, Crosshair, ZoomIn, ZoomOut, Move, LogIn, LogOut, X } from 
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { OperationType, handleFirestoreError } from '../utils/firestoreError';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut, User } from 'firebase/auth';
 
 const MAPS = [
     { id: 'BER', name: 'Bermuda', url: 'https://i.ibb.co/q34yct8f/BERMUDA-MAPA.png' },
@@ -32,7 +31,7 @@ const Studies: React.FC = () => {
     const [pan, setPan] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-    const [user, setUser] = useState<User | null>(null);
+    const [isAdmin, setIsAdmin] = useState(false);
 
     // Auth Modal State
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -42,13 +41,6 @@ const Studies: React.FC = () => {
     const [authMessage, setAuthMessage] = useState('');
     
     const containerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-            setUser(currentUser);
-        });
-        return () => unsubscribeAuth();
-    }, []);
 
     useEffect(() => {
         setPoints([]);
@@ -79,7 +71,7 @@ const Studies: React.FC = () => {
     }, [selectedMap]);
 
     const savePoints = async (newPoints: SafePoint[]) => {
-        if (!user) {
+        if (!isAdmin) {
             alert("Faça login com a conta de admin para adicionar ou remover marcações.");
             return;
         }
@@ -90,7 +82,8 @@ const Studies: React.FC = () => {
         try {
             await setDoc(doc(db, 'studies', selectedMap.id), {
                 mapId: selectedMap.id,
-                points: JSON.stringify(newPoints)
+                points: JSON.stringify(newPoints),
+                pin: '221120'
             });
         } catch (error) {
             console.error(error);
@@ -104,27 +97,12 @@ const Studies: React.FC = () => {
         setAuthError('');
         setAuthMessage('');
         
-        if (authPassword !== '221120') {
-            setAuthError("Senha incorreta!");
-            return;
-        }
-
-        const adminEmail = 'admin@ffws.com';
-        const securePassword = 'ffws_admin_secure_password_221120'; // This ensures the account password length requirement is met securely
-
-        try {
-            await signInWithEmailAndPassword(auth, adminEmail, securePassword);
+        if (authPassword === '221120') {
+            setIsAdmin(true);
             setShowAuthModal(false);
             setAuthPassword('');
-        } catch (error: any) {
-            try {
-                // First time ever getting initialized
-                await createUserWithEmailAndPassword(auth, adminEmail, securePassword);
-                setShowAuthModal(false);
-                setAuthPassword('');
-            } catch (createError: any) {
-                setAuthError("Erro de sistema: " + createError.message);
-            }
+        } else {
+            setAuthError("Senha incorreta!");
         }
     };
 
@@ -180,7 +158,7 @@ const Studies: React.FC = () => {
     }
 
     const handleClear = () => {
-        if (!user) {
+        if (!isAdmin) {
             alert("Faça login com a conta de admin para usar esta função.");
             return;
         }
@@ -236,9 +214,9 @@ const Studies: React.FC = () => {
                 <div>
                     <h1 className="text-3xl font-black uppercase italic tracking-widest text-white shadow-sm flex items-center gap-4">
                         Estudos de Safe
-                        {user ? (
+                        {isAdmin ? (
                             <div className="flex items-center gap-2 ml-4">
-                                <button onClick={() => signOut(auth)} className="text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-full flex items-center gap-2 transition-colors shadow-sm border border-red-500/20">
+                                <button onClick={() => setIsAdmin(false)} className="text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-full flex items-center gap-2 transition-colors shadow-sm border border-red-500/20">
                                     <LogOut size={12} /> Sair (Admin)
                                 </button>
                             </div>

@@ -10,7 +10,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isSignedIn() && request.auth.token.email == 'admin@ffws.com';
+      return incoming().pin == '221120';
     }
     
     function isValidId(id) { 
