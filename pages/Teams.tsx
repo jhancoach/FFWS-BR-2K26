@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardData, TeamStats, PlayerData, KillFeed, MatchDetails } from '../types';
 import { calculateTeamStats } from '../services/dataService';
-import { Shield, TrendingUp, Users, ArrowLeft, Target, Award, Crosshair, Map as MapIcon, BarChart3, Star, Disc, Activity, Layers, Zap, ListOrdered, Trophy, ChevronDown, Medal, CheckCircle2, Flame, TrendingDown, LayoutGrid, MapPin, Scale, ArrowUp, ArrowDown } from 'lucide-react';
+import { Shield, TrendingUp, Users, ArrowLeft, Target, Award, Crosshair, Map as MapIcon, BarChart3, Star, Disc, Activity, Layers, Zap, ListOrdered, Trophy, ChevronDown, Medal, CheckCircle2, Flame, TrendingDown, LayoutGrid, MapPin, Scale, ArrowUp, ArrowDown, Calendar } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, LabelList, PieChart, Pie, Cell, Legend, CartesianGrid, YAxis } from 'recharts';
 import FilterBar from '../components/FilterBar';
 
@@ -39,7 +39,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
   const [selectedDrop, setSelectedDrop] = useState<string | null>(null);
   const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'mapRanking' | 'bottomRanking' | 'mapAnalysis' | 'safeAnalysis' | 'comparison' | 'pointsTable'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'mapRanking' | 'bottomRanking' | 'mapAnalysis' | 'safeAnalysis' | 'comparison' | 'pointsTable' | 'teamRounds'>('gallery');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'pts', direction: 'desc' });
   const [compareTeamB, setCompareTeamB] = useState<string | null>(null);
 
@@ -459,6 +459,62 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     return trends;
   }, [data.details, sortedRoundsList, filteredTeamStats]);
 
+  // Rodadas jogadas pelo time selecionado
+  const selectedTeamRounds = useMemo(() => {
+    if (!selectedTeamName) return [];
+    
+    const roundsMap: Record<string, {
+      round: string;
+      confrontos: string[];
+      matches: MatchDetails[];
+      pts: number;
+      ptsc: number;
+      abts: number;
+      booyahs: number;
+    }> = {};
+
+    data.details.forEach(d => {
+      if (normalize(d.TIME) !== normalize(selectedTeamName)) return;
+      const rd = d.RD;
+      if (!rd) return;
+
+      if (!roundsMap[rd]) {
+        roundsMap[rd] = {
+          round: rd,
+          confrontos: [],
+          matches: [],
+          pts: 0,
+          ptsc: 0,
+          abts: 0,
+          booyahs: 0
+        };
+      }
+
+      const rdData = roundsMap[rd];
+      rdData.matches.push(d);
+      rdData.pts += parseInt(d.PTS) || 0;
+      rdData.ptsc += parseInt(d.PTSC) || 0;
+      rdData.abts += parseInt(d.ABTS) || 0;
+      if (parseInt(d.B) > 0) {
+        rdData.booyahs += 1;
+      }
+      if (d.CONFRONTO && !rdData.confrontos.includes(d.CONFRONTO)) {
+        rdData.confrontos.push(d.CONFRONTO);
+      }
+    });
+
+    return Object.values(roundsMap).sort((a, b) => {
+      const numA = parseInt(a.round.replace(/\D/g, '')) || 0;
+      const numB = parseInt(b.round.replace(/\D/g, '')) || 0;
+      if (numA !== numB) return numA - numB;
+      return a.round.localeCompare(b.round);
+    });
+  }, [data.details, selectedTeamName]);
+
+  const teamsList = useMemo(() => {
+    return filteredTeamStats.map(t => ({ name: t.name, image: t.image, grupo: t.grupo, pts: t.pts })).sort((a,b) => a.name.localeCompare(b.name));
+  }, [filteredTeamStats]);
+
   // Análise de Mapas por Queda
   const mapAnalysisData = useMemo(() => {
     const analysis: Record<string, Record<string, number>> = {};
@@ -518,7 +574,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
             <FilterBar filters={filters} setFilters={setFilters} options={filterOptions} />
             
             <div className="flex items-center gap-4">
-                {(!selectedTeamName || activeTab === 'comparison') && (
+                {(!selectedTeamName || activeTab === 'comparison' || activeTab === 'teamRounds') && (
                     <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
                         <button 
                             onClick={() => setActiveTab('gallery')}
@@ -562,10 +618,16 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                         >
                             <ListOrdered size={14} /> Tabela de Pontos
                         </button>
+                        <button 
+                            onClick={() => setActiveTab('teamRounds')}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'teamRounds' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            <Calendar size={14} /> Rodadas por Time
+                        </button>
                     </div>
                 )}
-
-                {selectedTeamName && activeTab !== 'comparison' && (
+                
+                {selectedTeamName && activeTab !== 'comparison' && activeTab !== 'teamRounds' && (
                     <button 
                         onClick={() => {
                             if (selectedMap) setSelectedMap(null);
@@ -581,7 +643,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
             </div>
         </div>
 
-        {selectedTeamName && selectedTeamStats && activeTab !== 'comparison' ? (
+        {selectedTeamName && selectedTeamStats && activeTab !== 'comparison' && activeTab !== 'teamRounds' ? (
             <div className="space-y-8 animate-in fade-in duration-500 pb-10">
                 {/* Header do Time */}
                 <div className="bg-[#1a1a1a] rounded-3xl p-8 border border-gray-800 shadow-2xl relative overflow-hidden bg-gradient-to-br from-[#1a1a1a] to-black">
@@ -1514,6 +1576,217 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        ) : activeTab === 'teamRounds' ? (
+            <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+                <div className="bg-[#1a1a1a] p-6 rounded-3xl border border-gray-800 shadow-xl overflow-hidden">
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
+                        <div>
+                            <h3 className="text-xl font-black text-white uppercase italic tracking-widest flex items-center gap-3">
+                                <Calendar size={20} className="text-yellow-500"/> HISTÓRICO DE RODADAS POR EQUIPE
+                            </h3>
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">
+                                Visualize quais rodadas uma equipe jogou e os detalhes de sua performance em cada queda
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Seleção de equipe */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-black/40 p-4 rounded-2xl border border-white/5">
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Selecionar Equipe:</label>
+                            <select 
+                                value={selectedTeamName || ''} 
+                                onChange={(e) => setFilters(prev => ({ ...prev, team: e.target.value ? [e.target.value] : [] }))}
+                                className="bg-black text-white text-xs font-black uppercase tracking-wider py-2 px-4 rounded-xl border border-gray-800 focus:border-yellow-500 outline-none cursor-pointer"
+                            >
+                                <option value="">-- Escolha uma Equipe --</option>
+                                {teamsList.map(t => (
+                                    <option key={t.name} value={t.name}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {selectedTeamName && (
+                            <button 
+                                onClick={() => setFilters(prev => ({ ...prev, team: [] }))}
+                                className="text-[10px] font-black text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-4 py-2 rounded-xl border border-red-500/20 uppercase tracking-widest transition-colors scale-100 hover:scale-[1.02] active:scale-95"
+                            >
+                                Limpar Seleção
+                            </button>
+                        )}
+                    </div>
+
+                    {selectedTeamName && selectedTeamStats ? (
+                        <div className="space-y-6">
+                            {/* Card de Resumo do Time Selecionado */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex items-center gap-4">
+                                    <div className="w-14 h-14 bg-black rounded-xl border border-gray-800 p-2 flex items-center justify-center relative shrink-0">
+                                        {selectedTeamStats.image ? (
+                                            <img src={selectedTeamStats.image} alt={selectedTeamStats.name} className="w-full h-full object-contain" />
+                                        ) : (
+                                            <Shield size={24} className="text-gray-700" />
+                                        )}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <span className="text-[8px] text-gray-500 font-black uppercase tracking-widest block">EQUIPE</span>
+                                        <h4 className="text-lg font-black italic uppercase leading-none text-white truncate">{selectedTeamStats.name}</h4>
+                                        {selectedTeamStats.grupo && (
+                                            <span className="text-[8px] text-yellow-500 font-bold uppercase tracking-widest mt-1 block">{selectedTeamStats.grupo}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="bg-black/40 rounded-2xl p-4 border border-white/5 text-center flex flex-col justify-center">
+                                    <span className="text-[8px] text-gray-500 font-black uppercase tracking-widest block mb-1">PONTOS TOTAIS</span>
+                                    <span className="text-2xl font-black italic leading-none text-yellow-500">{selectedTeamStats.pts}</span>
+                                </div>
+                                <div className="bg-black/40 rounded-2xl p-4 border border-white/5 text-center flex flex-col justify-center">
+                                    <span className="text-[8px] text-gray-500 font-black uppercase tracking-widest block mb-1">ABATES (KILLS)</span>
+                                    <span className="text-2xl font-black italic leading-none text-red-500">{selectedTeamStats.abts}</span>
+                                </div>
+                                <div className="bg-black/40 rounded-2xl p-4 border border-white/5 text-center flex flex-col justify-center">
+                                    <span className="text-[8px] text-gray-500 font-black uppercase tracking-widest block mb-1">BOOYAHS (VITÓRIAS)</span>
+                                    <span className="text-2xl font-black italic leading-none text-orange-500">{selectedTeamStats.b}</span>
+                                </div>
+                            </div>
+
+                            {/* Lista de Rodadas */}
+                            <h4 className="text-white font-black uppercase tracking-widest text-xs mt-8 mb-4 border-l-2 border-yellow-500 pl-3">
+                                RODADAS DISPUTADAS ({selectedTeamRounds.length})
+                            </h4>
+
+                            <div className="space-y-4">
+                                {selectedTeamRounds.map((rdData) => (
+                                    <div key={rdData.round} className="bg-black/30 rounded-2xl border border-gray-800 overflow-hidden shadow-lg">
+                                        {/* Cabeçalho da Rodada */}
+                                        <div className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#141414] border-b border-gray-800">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center font-black text-yellow-500 text-sm">
+                                                    RD
+                                                </div>
+                                                <div>
+                                                    <h5 className="text-sm font-black text-white uppercase italic tracking-wider flex items-center gap-2">
+                                                        RODADA {rdData.round}
+                                                    </h5>
+                                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                                        <span className="text-[8px] text-gray-600 font-bold uppercase tracking-widest">Confrontos:</span>
+                                                        {rdData.confrontos.map(conf => (
+                                                            <span key={conf} className="bg-white/5 border border-white/5 text-[8px] font-black uppercase text-gray-400 px-2 py-0.5 rounded">
+                                                                {conf}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-4">
+                                                <div className="text-center bg-black/60 px-3 py-1.5 rounded-xl border border-white/5 min-w-[70px]">
+                                                    <span className="block text-[7px] text-gray-500 font-black uppercase tracking-widest">Pontos</span>
+                                                    <span className="text-xs font-black text-yellow-500 leading-none mt-1 inline-block">{rdData.pts}</span>
+                                                </div>
+                                                <div className="text-center bg-black/60 px-3 py-1.5 rounded-xl border border-white/5 min-w-[70px]">
+                                                    <span className="block text-[7px] text-gray-500 font-black uppercase tracking-widest">Kills</span>
+                                                    <span className="text-xs font-black text-red-500 leading-none mt-1 inline-block">{rdData.abts}</span>
+                                                </div>
+                                                <div className="text-center bg-black/60 px-3 py-1.5 rounded-xl border border-white/5 min-w-[70px]">
+                                                    <span className="block text-[7px] text-gray-500 font-black uppercase tracking-widest">Posição</span>
+                                                    <span className="text-xs font-black text-blue-400 leading-none mt-1 inline-block">{rdData.ptsc}</span>
+                                                </div>
+                                                <div className="text-center bg-black/60 px-3 py-1.5 rounded-xl border border-white/5 min-w-[70px]">
+                                                    <span className="block text-[7px] text-gray-500 font-black uppercase tracking-widest">Booyahs</span>
+                                                    <span className="text-xs font-black text-orange-500 leading-none mt-1 inline-block">{rdData.booyahs}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Quedas Jogadas */}
+                                        <div className="p-4 overflow-x-auto w-full">
+                                            <table className="w-full text-left border-collapse table-auto whitespace-nowrap">
+                                                <thead className="bg-black/50 text-gray-500 text-[8px] uppercase font-black tracking-widest border-b border-gray-800">
+                                                    <tr>
+                                                        <th className="px-4 py-2.5">Queda</th>
+                                                        <th className="px-4 py-2.5">Mapa</th>
+                                                        <th className="px-4 py-2.5 text-center">Posição</th>
+                                                        <th className="px-4 py-2.5 text-center text-yellow-500">Pontos</th>
+                                                        <th className="px-4 py-2.5 text-center text-orange-500">Pts Pos</th>
+                                                        <th className="px-4 py-2.5 text-center text-red-500">Abates</th>
+                                                        <th className="px-4 py-2.5 text-center">Booyah</th>
+                                                        <th className="px-4 py-2.5">Onde Fechou</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-800/30 text-xs">
+                                                    {rdData.matches.map((m, mIdx) => (
+                                                        <tr key={mIdx} className="hover:bg-white/[0.02] transition-colors">
+                                                            <td className="px-4 py-3 font-semibold text-gray-400">Queda {m.Q}</td>
+                                                            <td className="px-4 py-3 font-bold text-white uppercase italic tracking-wider text-[10px]">{m.MAPA}</td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg font-black italic text-xs border ${parseInt(m.POS) === 1 ? 'bg-yellow-500 text-black border-yellow-600' : 'bg-gray-950 text-gray-400 border-gray-800'}`}>
+                                                                    {m.POS}º
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center font-black text-yellow-500">{m.PTS}</td>
+                                                            <td className="px-4 py-3 text-center font-black text-orange-400">{m.PTSC}</td>
+                                                            <td className="px-4 py-3 text-center font-black text-red-500">{m.ABTS}</td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                {parseInt(m.B) > 0 ? (
+                                                                    <span className="bg-yellow-500 text-black px-1.5 py-0.5 rounded font-black text-[8px] uppercase tracking-tighter">BOOYAH</span>
+                                                                ) : (
+                                                                    <span className="text-gray-700 font-bold">-</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                {m.ONDE_FECHOU ? (
+                                                                    <span className="bg-red-500/10 text-red-400 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border border-red-500/20 shadow-md">
+                                                                        {m.ONDE_FECHOU}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-gray-600 font-bold text-[10px]">-</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ))}
+                                {selectedTeamRounds.length === 0 && (
+                                    <div className="py-12 text-center text-[10px] text-gray-600 font-black uppercase italic tracking-widest bg-black/10 rounded-2xl border border-dashed border-gray-800">
+                                        Nenhuma rodada encontrada para esta equipe no momento.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <div className="text-center py-12 bg-black/20 rounded-3xl border border-dashed border-gray-800">
+                                <Calendar size={40} className="text-yellow-500 mx-auto opacity-70 mb-4" />
+                                <h4 className="text-white font-black uppercase italic tracking-widest text-sm">Nenhuma Equipe Selecionada</h4>
+                                <p className="text-xs text-gray-500 font-medium mt-1">Escolha uma equipe abaixo ou na barra superior para listar suas rodadas.</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                {teamsList.map(t => (
+                                    <div 
+                                        key={t.name}
+                                        onClick={() => setFilters(prev => ({ ...prev, team: [t.name] }))}
+                                        className="bg-black/30 rounded-2xl p-4 border border-gray-800/80 hover:border-yellow-500/40 cursor-pointer hover:bg-yellow-500/[0.02] flex flex-col items-center justify-center text-center transition-all group scale-100 hover:scale-[1.03] active:scale-95 shadow-md"
+                                    >
+                                        <div className="w-12 h-12 bg-black rounded-xl border border-gray-800 p-1.5 flex items-center justify-center shrink-0 mb-3 group-hover:border-yellow-500 transition-all">
+                                            {t.image ? (
+                                                <img src={t.image} alt={t.name} className="w-full h-full object-contain" />
+                                            ) : (
+                                                <Shield size={18} className="text-gray-700" />
+                                            )}
+                                        </div>
+                                        <span className="text-xs font-black uppercase tracking-tight text-white group-hover:text-yellow-500 transition-colors">{t.name}</span>
+                                        <span className="text-[8px] text-yellow-500/60 font-black uppercase mt-1 block">{t.pts} PTS</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         ) : (
