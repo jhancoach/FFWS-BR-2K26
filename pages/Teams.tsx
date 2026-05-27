@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardData, TeamStats, PlayerData, KillFeed, MatchDetails } from '../types';
 import { calculateTeamStats } from '../services/dataService';
-import { Shield, TrendingUp, Users, ArrowLeft, Target, Award, Crosshair, Map as MapIcon, BarChart3, Star, Disc, Activity, Layers, Zap, ListOrdered, Trophy, ChevronDown, Medal, CheckCircle2, Flame, TrendingDown, LayoutGrid, MapPin, Scale } from 'lucide-react';
+import { Shield, TrendingUp, Users, ArrowLeft, Target, Award, Crosshair, Map as MapIcon, BarChart3, Star, Disc, Activity, Layers, Zap, ListOrdered, Trophy, ChevronDown, Medal, CheckCircle2, Flame, TrendingDown, LayoutGrid, MapPin, Scale, ArrowUp, ArrowDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, LabelList, PieChart, Pie, Cell, Legend, CartesianGrid, YAxis } from 'recharts';
 import FilterBar from '../components/FilterBar';
 
@@ -39,7 +39,7 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
   const [selectedDrop, setSelectedDrop] = useState<string | null>(null);
   const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'mapRanking' | 'bottomRanking' | 'mapAnalysis' | 'safeAnalysis' | 'comparison'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'mapRanking' | 'bottomRanking' | 'mapAnalysis' | 'safeAnalysis' | 'comparison' | 'pointsTable'>('gallery');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'pts', direction: 'desc' });
   const [compareTeamB, setCompareTeamB] = useState<string | null>(null);
 
@@ -371,6 +371,94 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
     };
   }, [filteredTeamStats]);
 
+  // Lista ordenada de todas as rodadas / dias
+  const sortedRoundsList = useMemo(() => {
+    const uniqueRounds = Array.from(new Set(data.details.map(d => d.RD))).filter(Boolean) as string[];
+    return uniqueRounds.sort((a: string, b: string) => {
+      const numA = parseInt(a.replace(/\D/g, '')) || 0;
+      const numB = parseInt(b.replace(/\D/g, '')) || 0;
+      if (numA !== numB) return numA - numB;
+      return a.localeCompare(b);
+    });
+  }, [data.details]);
+
+  // Formata o cabeçalho da rodada para "Day X" se for numérico, correspondendo ao print do usuário
+  const formatRoundHeader = (rd: string) => {
+    const num = parseInt(rd.replace(/\D/g, ''));
+    if (!isNaN(num)) {
+      return `Day ${num}`;
+    }
+    return rd;
+  };
+
+  // Mapeamento de pontos por rodada e time
+  const teamRoundPoints = useMemo(() => {
+    const pointsMap: Record<string, Record<string, number>> = {};
+    
+    data.details.forEach(d => {
+      const teamName = d.TIME;
+      const round = d.RD;
+      if (!teamName || !round) return;
+      
+      if (!pointsMap[teamName]) {
+        pointsMap[teamName] = {};
+      }
+      const pts = parseInt(d.PTS) || 0;
+      pointsMap[teamName][round] = (pointsMap[teamName][round] || 0) + pts;
+    });
+    
+    return pointsMap;
+  }, [data.details]);
+
+  // Tendências de Rank baseadas no acumulado anterior ao último round
+  const rankTrends = useMemo(() => {
+    const trends: Record<string, { change: number; type: 'up' | 'down' | 'neutral' }> = {};
+    
+    if (sortedRoundsList.length <= 1) {
+      return trends;
+    }
+
+    const penultimaRounds = sortedRoundsList.slice(0, -1);
+    const prevTeamStats: Record<string, { pts: number; b: number; abts: number; name: string }> = {};
+
+    data.details.forEach(row => {
+      const teamName = row.TIME;
+      if (!teamName || !row.RD || !penultimaRounds.includes(row.RD)) return;
+
+      if (!prevTeamStats[teamName]) {
+        prevTeamStats[teamName] = { pts: 0, b: 0, abts: 0, name: teamName };
+      }
+      const pStats = prevTeamStats[teamName];
+      pStats.pts += parseInt(row.PTS) || 0;
+      pStats.b += parseInt(row.B) || 0;
+      pStats.abts += parseInt(row.ABTS) || 0;
+    });
+
+    const sortedPrevTeams = Object.values(prevTeamStats).sort((a, b) => {
+      if (b.pts !== a.pts) return b.pts - a.pts;
+      if (b.b !== a.b) return b.b - a.b;
+      return b.abts - a.abts;
+    });
+
+    filteredTeamStats.forEach((teamCurrent, currentIdx) => {
+      const prevIdx = sortedPrevTeams.findIndex(t => t.name === teamCurrent.name);
+      if (prevIdx === -1) {
+        trends[teamCurrent.name] = { change: 0, type: 'neutral' };
+      } else {
+        const change = prevIdx - currentIdx; 
+        if (change > 0) {
+          trends[teamCurrent.name] = { change, type: 'up' };
+        } else if (change < 0) {
+          trends[teamCurrent.name] = { change: Math.abs(change), type: 'down' };
+        } else {
+          trends[teamCurrent.name] = { change: 0, type: 'neutral' };
+        }
+      }
+    });
+
+    return trends;
+  }, [data.details, sortedRoundsList, filteredTeamStats]);
+
   // Análise de Mapas por Queda
   const mapAnalysisData = useMemo(() => {
     const analysis: Record<string, Record<string, number>> = {};
@@ -467,6 +555,12 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                             className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'comparison' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
                         >
                             <Scale size={14} /> Comparar
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('pointsTable')}
+                            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'pointsTable' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            <ListOrdered size={14} /> Tabela de Pontos
                         </button>
                     </div>
                 )}
@@ -1294,6 +1388,132 @@ const Teams: React.FC<TeamsProps> = ({ data }) => {
                     <BottomList title="Piores em Booyahs" data={bottomRankings.booyahs} metric="b" label="BOOYAHS" color="text-blue-500" onSelect={(name) => setFilters(prev => ({...prev, team: [name]}))} />
                     <BottomList title="Piores Médias (PTS)" data={bottomRankings.avgPts} metric="avgPts" label="AVG PTS" color="text-yellow-400" onSelect={(name) => setFilters(prev => ({...prev, team: [name]}))} />
                     <BottomList title="Piores Médias (KILLS)" data={bottomRankings.avgAbts} metric="avgAbts" label="AVG KILLS" color="text-red-500" onSelect={(name) => setFilters(prev => ({...prev, team: [name]}))} />
+                </div>
+            </div>
+        ) : activeTab === 'pointsTable' ? (
+            <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+                <div className="bg-[#1a1a1a] p-6 rounded-3xl border border-gray-800 shadow-xl overflow-hidden">
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
+                        <div>
+                            <h3 className="text-xl font-black text-white uppercase italic tracking-widest flex items-center gap-3">
+                                <ListOrdered size={20} className="text-yellow-500"/> TABELA DE PONTOS POR RODADA
+                            </h3>
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">Classificação Geral & evolução de pontos de todos os times</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-lg border border-white/5 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded bg-blue-500 inline-block shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span> LÍDER (1º)
+                            </span>
+                            <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-lg border border-white/5 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded bg-[#10b981] inline-block shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span> FINALISTAS (2-12º)
+                            </span>
+                            <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-lg border border-white/5 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded bg-red-700 inline-block shadow-[0_0_8px_rgba(239,68,68,0.4)]"></span> REBAIXAMENTO (13º+)
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto w-full rounded-2xl border border-gray-800/60 shadow-inner scrollbar-thin scrollbar-thumb-gray-800">
+                        <table className="w-full text-left border-collapse table-auto whitespace-nowrap">
+                            <thead className="bg-[#0f0f0f] border-b border-gray-800 text-gray-400 text-[10px] uppercase font-black tracking-wider">
+                                <tr>
+                                    <th className="px-4 py-4 text-center w-16">#</th>
+                                    <th className="px-4 py-4 text-center w-14">TEND</th>
+                                    <th className="px-4 py-4 min-w-[200px]">Equipe</th>
+                                    <th className="px-4 py-4 text-center bg-yellow-900/10 text-yellow-500 w-24">PTS</th>
+                                    {sortedRoundsList.map(round => (
+                                        <th key={round} className="px-4 py-4 text-center min-w-[80px] font-bold text-gray-300">
+                                            {formatRoundHeader(round)}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-800/40">
+                                {filteredTeamStats.map((team, index) => {
+                                    const rank = index + 1;
+                                    const trend = rankTrends[team.name] || { change: 0, type: 'neutral' };
+                                    
+                                    // Determinar a cor do badge de rank do print do Free Fire
+                                    let rankBadgeClass = "w-6 h-6 rounded flex items-center justify-center font-black text-xs ";
+                                    if (rank === 1) {
+                                        rankBadgeClass += "bg-blue-600 text-white shadow-[0_0_8px_rgba(59,130,246,0.6)]";
+                                    } else if (rank <= 12) {
+                                        rankBadgeClass += "bg-[#10b981] text-black shadow-[0_0_8px_rgba(16,185,129,0.5)]";
+                                    } else {
+                                        rankBadgeClass += "bg-red-950/80 text-white border border-red-800/30";
+                                    }
+
+                                    // Determinar as bordas esquerdas das divisões
+                                    let rowBorderClass = "hover:bg-white/[0.03] transition-colors ";
+                                    if (rank <= 12) {
+                                        rowBorderClass += "border-l-[4px] border-[#10b981] bg-emerald-500/[0.01]";
+                                    } else {
+                                        rowBorderClass += "border-l-[4px] border-red-700 bg-red-500/[0.01]";
+                                    }
+
+                                    return (
+                                        <tr key={team.name} className={rowBorderClass}>
+                                            <td className="px-4 py-3 text-center">
+                                                <div className="flex justify-center items-center">
+                                                    <span className={rankBadgeClass}>{rank}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <div className="flex items-center justify-center font-bold text-xs">
+                                                    {trend.type === 'up' && (
+                                                        <span className="text-emerald-400 flex items-center gap-0.5">
+                                                            <ArrowUp size={12} className="stroke-[3]" /> {trend.change}
+                                                        </span>
+                                                    )}
+                                                    {trend.type === 'down' && (
+                                                        <span className="text-red-500 flex items-center gap-0.5">
+                                                            <ArrowDown size={12} className="stroke-[3]" /> {trend.change}
+                                                        </span>
+                                                    )}
+                                                    {trend.type === 'neutral' && (
+                                                        <span className="text-gray-600 font-bold">-</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 font-bold text-white">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-black border border-gray-800 p-1 flex-shrink-0 flex items-center justify-center">
+                                                        {team.image ? (
+                                                            <img src={team.image} alt={team.name} className="w-full h-full object-contain" />
+                                                        ) : (
+                                                            <Shield size={16} className="text-gray-700" />
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-black uppercase italic tracking-tight">{team.name}</span>
+                                                        {team.grupo && (
+                                                            <span className="text-[8px] font-bold text-gray-500 uppercase tracking-widest">{team.grupo}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-center font-black text-sm italic text-yellow-500 bg-yellow-950/10">
+                                                {team.pts}
+                                            </td>
+                                            {sortedRoundsList.map(round => {
+                                                const pts = teamRoundPoints[team.name]?.[round];
+                                                const isExistent = pts !== undefined;
+                                                return (
+                                                    <td key={round} className="px-4 py-3 text-center font-bold text-xs font-mono">
+                                                        {isExistent ? (
+                                                            <span className="text-white font-black">{pts}</span>
+                                                        ) : (
+                                                            <span className="text-gray-700 font-bold">-</span>
+                                                        )}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         ) : (
